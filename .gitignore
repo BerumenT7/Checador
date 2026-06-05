@@ -1,5 +1,8 @@
 # Root .gitignore for Checador project
 
+# Node.js (cualquier nivel)
+node_modules/
+
 # === Backend (Node.js) ===
 Back/node_modules/
 Back/.env
