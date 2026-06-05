@@ -1,0 +1,58 @@
+# Root .gitignore for Checador project
+
+# === Backend (Node.js) ===
+Back/node_modules/
+Back/.env
+Back/.env.local
+Back/.env.*.local
+Back/*.log
+Back/npm-debug.log*
+Back/logs/
+Back/.DS_Store
+
+# === Frontend (Ionic/Angular) ===
+Front/node_modules/
+Front/.angular/
+Front/.angular/cache
+Front/dist/
+Front/www/
+Front/platforms/
+Front/plugins/
+Front/coverage/
+Front/.sourcemaps
+Front/.versions
+Front/.ionic
+Front/tmp/
+Front/out-tsc/
+Front/bazel-out
+Front/.nx
+Front/.nx/cache
+Front/connect.lock
+Front/libpeerconnection.log
+Front/testem.log
+Front/typings
+Front/.sass-cache/
+
+# === IDE / Editor ===
+.vscode/
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-project
+*.sublime-workspace
+.history/*
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+$RECYCLE.BIN/
+
+# === General ===
+*.log
+*.tmp
+*.tmp.*
+*.sw[mnpcod]
+*~
