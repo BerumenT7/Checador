@@ -36,7 +36,7 @@ async function getTodayEntries(limit = 200) {
         TipoMovimiento,
         RegistradoPor,
         EsPermiso,
-        FechaHora
+        CONVERT(varchar(19), FechaHora, 120) AS FechaHora
       FROM RegistroEntradas
       WHERE CAST(FechaHora AS DATE) = CAST(GETDATE() AS DATE)
       ORDER BY FechaHora DESC
