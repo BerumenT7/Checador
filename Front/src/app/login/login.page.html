@@ -1,0 +1,46 @@
+<ion-content>
+  <div class="login-container">
+
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="assets/img/logo.jpg" alt="Logo empresa" />
+      </div>
+      <h1 class="login-title">Registro de Acceso</h1>
+      <p class="login-subtitle">Acceso restringido — Personal autorizado</p>
+
+      <div class="input-group">
+        <label>Clave de Empleado</label>
+        <input
+          type="text"
+          [(ngModel)]="claveChofer"
+          placeholder="Ej. 1206"
+          inputmode="numeric"
+          (keyup.enter)="onLogin()" />
+      </div>
+
+      <div class="input-group">
+        <label>Contraseña</label>
+        <div class="password-wrapper">
+          <input
+            [type]="showPassword ? 'text' : 'password'"
+            [(ngModel)]="password"
+            placeholder="••••••••"
+            (keyup.enter)="onLogin()" />
+          <button class="toggle-pass" type="button" (click)="togglePassword()">
+            <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <p class="error-msg" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <button class="login-btn" (click)="onLogin()" [disabled]="isLoading">
+        <ion-icon name="log-in-outline"></ion-icon>
+        {{ isLoading ? 'Verificando...' : 'Iniciar Sesión' }}
+      </button>
+
+      <p class="access-note">Solo personal de <strong>Sistemas</strong> y <strong>Seguridad</strong> puede acceder.</p>
+    </div>
+
+  </div>
+</ion-content>

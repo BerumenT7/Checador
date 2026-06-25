@@ -1,0 +1,320 @@
+<ion-content [fullscreen]="true" class="security-content">
+  <div class="security-container">
+
+    <!-- ───── HEADER ───── -->
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <div class="company-logo">
+          <img src="assets/img/logo.jpg" alt="Logo empresa" />
+        </div>
+        <div class="title-block">
+          <h1>REGISTRO DE ACCESO</h1>
+          <p>Ingresa el ID del empleado</p>
+        </div>
+      </div>
+      
+        <div class="date">{{ currentDate }}</div>
+        <div class="clock">{{ currentTime }}</div>
+      </div>
+    
+
+    <!-- ───── OPERATOR BAR ───── -->
+    <div class="operator-bar">
+      <div class="operator-info">
+        <ion-icon name="person-outline"></ion-icon>
+        <span class="operator-name">{{ auth.getUser()?.nombreCompleto }}</span>
+        <span class="operator-dept">{{ auth.getUser()?.departamento }}</span>
+      </div>
+      <button class="logout-btn" (click)="auth.logout()">
+        <ion-icon name="log-out-outline"></ion-icon>
+        Cerrar sesión
+      </button>
+    </div>
+
+    <!-- ───── MAIN PANELS ───── -->
+    <div class="main-panels">
+
+      <!-- LEFT: Keypad -->
+      <div class="panel left-panel">
+        <div class="step-label blue">PASO 1</div>
+        <h2>Ingresar ID de Empleado</h2>
+        <p class="step-desc">Ingresa el ID del empleado con el teclado y presiona ENTER.</p>
+
+        <div class="id-display">
+          <span *ngIf="enteredId; else placeholder">{{ enteredId }}</span>
+          <ng-template #placeholder>
+            <span class="cursor-blink">|</span>
+          </ng-template>
+        </div>
+
+        <div class="keypad">
+          <div class="keypad-row">
+            <button class="key-btn" (click)="pressKey('1')">1</button>
+            <button class="key-btn" (click)="pressKey('2')">2</button>
+            <button class="key-btn" (click)="pressKey('3')">3</button>
+          </div>
+          <div class="keypad-row">
+            <button class="key-btn" (click)="pressKey('4')">4</button>
+            <button class="key-btn" (click)="pressKey('5')">5</button>
+            <button class="key-btn" (click)="pressKey('6')">6</button>
+          </div>
+          <div class="keypad-row">
+            <button class="key-btn" (click)="pressKey('7')">7</button>
+            <button class="key-btn" (click)="pressKey('8')">8</button>
+            <button class="key-btn" (click)="pressKey('9')">9</button>
+          </div>
+          <div class="keypad-row">
+            <button class="key-btn key-zero" (click)="pressKey('0')">0</button>
+            <button class="key-btn key-backspace" (click)="pressBackspace()">⌫</button>
+            <button class="key-btn key-enter" (click)="pressEnter()">ENTER&nbsp;↵</button>
+          </div>
+        </div>
+
+        <div class="help-text">
+          <ion-icon name="help-circle-outline"></ion-icon>
+          ¿Necesitas ayuda? Contacta a Seguridad.
+        </div>
+      </div>
+
+      <!-- ARROW -->
+      <div class="arrow-divider">
+        <ion-icon name="chevron-forward"></ion-icon>
+      </div>
+
+      <!-- RIGHT: Employee Info -->
+      <div class="panel right-panel">
+        <div class="step-label green">PASO 2</div>
+        <h2>Verificar y Admitir</h2>
+
+        <!-- Idle / loading state -->
+        <p class="step-desc" *ngIf="!currentEmployee && !employeeNotFound && !isLoading">
+          Ingresa un ID y presiona ENTER para buscar.
+        </p>
+        <p class="step-desc loading" *ngIf="isLoading">
+          <ion-icon name="reload" class="spinning"></ion-icon>&nbsp;Buscando empleado...
+        </p>
+
+        <!-- Encontrado -->
+        <p class="step-desc success" *ngIf="currentEmployee && !isLoading">
+          Empleado encontrado. Verifica los datos y presiona el botón para registrar.
+        </p>
+
+        <!-- No encontrado -->
+        <p class="step-desc error" *ngIf="employeeNotFound && !isLoading">
+          Empleado no encontrado. Verifica el ID e intenta de nuevo.
+        </p>
+
+        <!-- Employee card -->
+        <div class="employee-card" *ngIf="currentEmployee; else emptyCard">
+          <div class="employee-avatar">
+            <img *ngIf="employeePhoto; else avatarInitials"
+              [src]="employeePhoto"
+              alt="Foto empleado"
+              class="employee-photo" />
+            <ng-template #avatarInitials>
+              <span class="initials">{{ getInitials(currentEmployee.NombreCompleto) }}</span>
+            </ng-template>
+            <div *ngIf="loadingPhoto" class="photo-spinner">
+              <ion-icon name="reload" class="spinning"></ion-icon>
+            </div>
+            <button *ngIf="isSlowConnection && currentEmployee.TieneFoto && !employeePhoto && !loadingPhoto"
+              class="load-photo-btn"
+              (click)="loadPhoto(currentEmployee.NumEmpleado)"
+              title="Conexión lenta. Toca para cargar foto.">
+              - Cargar foto -
+            </button>
+          </div>
+          <div class="employee-details">
+            <div class="detail-row">
+              <span class="detail-label">Núm. Empleado:</span>
+              <span class="detail-value">{{ currentEmployee.NumEmpleado }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Nombre:</span>
+              <span class="detail-value">{{ currentEmployee.NombreCompleto }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Departamento:</span>
+              <span class="detail-value">{{ currentEmployee.Departamento }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Puesto:</span>
+              <span class="detail-value">{{ currentEmployee.Puesto }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Estatus:</span>
+              <span class="status-badge"
+                [class.active]="currentEmployee.Estatus === 'ACTIVE'"
+                [class.inactive]="currentEmployee.Estatus === 'INACTIVE'">
+                {{ currentEmployee.Estatus === 'ACTIVE' ? 'ACTIVO' : 'INACTIVO' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty / not-found placeholder -->
+        <ng-template #emptyCard>
+          <div class="empty-card" [class.error-card]="employeeNotFound">
+            <ion-icon [name]="employeeNotFound ? 'alert-circle-outline' : 'person-outline'"></ion-icon>
+            <p *ngIf="employeeNotFound">No se encontró empleado con ID: <strong>{{ enteredId }}</strong></p>
+            <p *ngIf="!employeeNotFound">Esperando ID de empleado…</p>
+          </div>
+        </ng-template>
+
+        <div class="action-btns">
+          <button class="admit-btn" [class.salida]="tipoMovimiento === 'SALIDA'"
+            [disabled]="!currentEmployee || currentEmployee.Estatus !== 'ACTIVE' || isLoading"
+            (click)="admitEmployee()">
+            <ion-icon [name]="isLoading ? 'reload' : (tipoMovimiento === 'ENTRADA' ? 'enter-outline' : 'exit-outline')"
+              [class.spinning]="isLoading"></ion-icon>
+            {{ isLoading ? 'PROCESANDO...' : (tipoMovimiento === 'ENTRADA' ? 'REGISTRAR ENTRADA' : 'REGISTRAR SALIDA') }}
+          </button>
+
+          <button class="permiso-btn"
+            *ngIf="tipoMovimiento === 'SALIDA'"
+            [disabled]="!currentEmployee || currentEmployee.Estatus !== 'ACTIVE' || isLoading"
+            (click)="salidarConPermiso()">
+            <ion-icon name="camera-outline"></ion-icon>
+            SALIR CON PERMISO
+          </button>
+        </div>
+
+        <div class="admit-error" *ngIf="admitError">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          {{ admitError }}
+        </div>
+        <p class="admit-hint" *ngIf="!admitError">Presiona el botón para registrar {{ tipoMovimiento === 'ENTRADA' ? 'entrada' : 'salida' }} del empleado</p>
+      </div>
+    </div>
+
+    <!-- ───── MOVIMIENTO TOGGLE ───── -->
+    <div class="tipo-toggle">
+      <button class="tipo-btn" [class.active]="tipoMovimiento === 'ENTRADA'" (click)="setTipo('ENTRADA')">
+        <ion-icon name="enter-outline"></ion-icon>
+        ENTRADA
+      </button>
+      <button class="tipo-btn salida" [class.active]="tipoMovimiento === 'SALIDA'" (click)="setTipo('SALIDA')">
+        <ion-icon name="exit-outline"></ion-icon>
+        SALIDA
+      </button>
+    </div>
+
+    <!-- ───── CONTADORES DEL DÍA ───── -->
+    <div class="day-counters">
+      <div class="counter-card entradas">
+        <ion-icon name="enter-outline"></ion-icon>
+        <span class="counter-value">{{ totalEntradas }}</span>
+        <span class="counter-label">ENTRADAS</span>
+      </div>
+      <div class="counter-card salidas">
+        <ion-icon name="exit-outline"></ion-icon>
+        <span class="counter-value">{{ totalSalidas }}</span>
+        <span class="counter-label">SALIDAS</span>
+      </div>
+      <div class="counter-card permisos">
+        <ion-icon name="camera-outline"></ion-icon>
+        <span class="counter-value">{{ totalPermisos }}</span>
+        <span class="counter-label">PERMISOS</span>
+      </div>
+      <div class="counter-card total">
+        <ion-icon name="shield-checkmark"></ion-icon>
+        <span class="counter-value">{{ entryLog.length }}</span>
+        <span class="counter-label">TOTAL</span>
+      </div>
+    </div>
+
+    <!-- ───── ENTRY LOG ───── -->
+    <div class="entry-log-panel">
+      <div class="log-header">
+        <div class="log-title">REGISTRO DEL DÍA</div>
+        <button class="export-btn" (click)="exportCSV()" [disabled]="entryLog.length === 0">
+          <ion-icon name="download-outline"></ion-icon>
+          Exportar CSV
+        </button>
+      </div>
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>HORA</th>
+            <th>CLAVE</th>
+            <th>NOMBRE</th>
+            <th>DEPARTAMENTO</th>
+            <th>MOVIMIENTO</th>
+            <th>REGISTRADO POR</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let entry of entryLog">
+            <td>{{ entry.time }}</td>
+            <td>{{ entry.employeeId }}</td>
+            <td>{{ entry.name }}</td>
+            <td>{{ entry.department }}</td>
+            <td>
+              <span class="tipo-badge" [class.entrada]="entry.tipoMovimiento === 'ENTRADA'" [class.salida]="entry.tipoMovimiento === 'SALIDA'">
+                {{ entry.tipoMovimiento }}
+              </span>
+              <span class="permiso-badge" *ngIf="entry.esPermiso" (click)="viewPhoto(entry.id)" style="cursor:pointer" title="Ver foto del ticket">PERMISO 📷</span>
+            </td>
+            <td class="registrado-por">{{ entry.registradoPor }}</td>
+          </tr>
+          <tr *ngIf="entryLog.length === 0">
+            <td colspan="6" class="no-entries">Sin registros hoy</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ───── ÉXITO REGISTRO ───── -->
+  <div class="success-overlay" *ngIf="showSuccessModal" (click)="showSuccessModal = false">
+    <div class="success-dialog">
+      <div class="success-check">
+        <ion-icon name="checkmark-circle"></ion-icon>
+      </div>
+      <h3>¡Confirmado!</h3>
+      <p>{{ successMessage }}</p>
+    </div>
+  </div>
+
+  <!-- ───── CONFIRMAR SALIDA ───── -->
+  <div class="exit-overlay" *ngIf="showExitConfirm">
+    <div class="exit-dialog">
+      <ion-icon name="exit-outline" class="exit-icon"></ion-icon>
+      <h3>¿Salir de la aplicación?</h3>
+      <p>Asegúrate de que el turno de seguridad haya terminado antes de salir.</p>
+      <div class="exit-actions">
+        <button class="exit-cancel-btn" (click)="cancelExit()">Cancelar</button>
+        <button class="exit-confirm-btn" (click)="confirmExit()">Salir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── MODAL FOTO TICKET ───── -->
+  <div class="photo-modal-overlay" *ngIf="showPhotoModal" (click)="closePhotoModal()">
+    <div class="photo-modal" (click)="$event.stopPropagation()">
+      <button class="photo-modal-close" (click)="closePhotoModal()">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+      <div class="photo-modal-title">
+        <ion-icon name="image-outline"></ion-icon>
+        Foto del Ticket de Permiso
+      </div>
+      <div class="photo-modal-body">
+        <div class="photo-loading" *ngIf="loadingPhoto">
+          <ion-icon name="reload" class="spinning"></ion-icon>
+          Cargando foto...
+        </div>
+        <img *ngIf="selectedPhoto && !loadingPhoto"
+          [src]="selectedPhoto"
+          alt="Ticket de permiso"
+          class="ticket-photo" />
+        <div class="photo-error" *ngIf="!selectedPhoto && !loadingPhoto">
+          <ion-icon name="image-outline"></ion-icon>
+          <p>No se pudo cargar la foto</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</ion-content>

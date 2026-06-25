@@ -1,0 +1,514 @@
+import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { IonContent, IonIcon } from '@ionic/angular/standalone';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { App } from '@capacitor/app';
+import { ScreenOrientation } from '@capacitor/screen-orientation';
+import { Platform } from '@ionic/angular';
+import { Subscription } from 'rxjs';
+import { addIcons } from 'ionicons';
+import {
+  shieldCheckmark,
+  chevronForward,
+  helpCircleOutline,
+  personOutline,
+  lockOpen,
+  alertCircleOutline,
+  reload,
+  logOutOutline,
+  enterOutline,
+  exitOutline,
+  documentOutline,
+  cameraOutline,
+  downloadOutline,
+  closeOutline,
+  imageOutline,
+  refreshOutline,
+  checkmarkCircle,
+} from 'ionicons/icons';
+import { environment } from '../../environments/environment';
+import { AuthService } from '../services/auth.service';
+import { ConnectivityService } from '../services/connectivity.service';
+import { OfflineQueueService } from '../services/offline-queue.service';
+
+export interface Employee {
+  NumEmpleado: string;
+  NombreCompleto: string;
+  Departamento: string;
+  Puesto: string;
+  Estatus: 'ACTIVE' | 'INACTIVE';
+  TieneFoto: boolean;
+}
+
+export interface EntryLogItem {
+  id: number;
+  time: string;
+  employeeId: string;
+  name: string;
+  department: string;
+  status: 'ADMITTED' | 'DENIED';
+  tipoMovimiento: 'ENTRADA' | 'SALIDA';
+  registradoPor: string;
+  esPermiso: boolean;
+}
+
+@Component({
+  selector: 'app-home',
+  templateUrl: 'home.page.html',
+  styleUrls: ['home.page.scss'],
+  standalone: true,
+  imports: [CommonModule, IonContent, IonIcon],
+})
+export class HomePage implements OnInit, OnDestroy {
+  enteredId = '';
+  currentTime = '';
+  currentDate = '';
+  currentEmployee: Employee | null = null;
+  employeeNotFound = false;
+  entryLog: EntryLogItem[] = [];
+  isLoading = false;
+  tipoMovimiento: 'ENTRADA' | 'SALIDA' = 'ENTRADA';
+  showPhotoModal = false;
+  selectedPhoto: string | null = null;
+  loadingPhoto = false;
+  admitError = '';
+  showExitConfirm = false;
+  showSuccessModal = false;
+  successMessage = '';
+  isOnline = true;
+  pendingCount = 0;
+  isSlowConnection = false;
+  connectionType = 'unknown';
+  employeePhoto: string | null = null;
+  private admitErrorTimer: ReturnType<typeof setTimeout> | null = null;
+  private successTimer: ReturnType<typeof setTimeout> | null = null;
+  private backButtonSub: Subscription | null = null;
+  private onlineSub: Subscription | null = null;
+  private slowConnSub: Subscription | null = null;
+  private connInfoSub: Subscription | null = null;
+  private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly CACHE_TTL = 5 * 60 * 1000;
+
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly apiUrl = environment.apiUrl;
+
+  constructor(
+    private http: HttpClient,
+    public auth: AuthService,
+    private platform: Platform,
+    private zone: NgZone,
+    private connectivity: ConnectivityService,
+    private offlineQueue: OfflineQueueService,
+  ) {
+    addIcons({
+      shieldCheckmark,
+      chevronForward,
+      helpCircleOutline,
+      personOutline,
+      lockOpen,
+      alertCircleOutline,
+      reload,
+      logOutOutline,
+      enterOutline,
+      exitOutline,
+      documentOutline,
+      cameraOutline,
+      downloadOutline,
+      closeOutline,
+      imageOutline,
+      refreshOutline,
+      checkmarkCircle,
+    });
+  }
+
+  setTipo(tipo: 'ENTRADA' | 'SALIDA') {
+    this.tipoMovimiento = tipo;
+  }
+
+  get totalEntradas(): number {
+    return this.entryLog.filter(e => e.tipoMovimiento === 'ENTRADA').length;
+  }
+  get totalSalidas(): number {
+    return this.entryLog.filter(e => e.tipoMovimiento === 'SALIDA' && !e.esPermiso).length;
+  }
+  get totalPermisos(): number {
+    return this.entryLog.filter(e => e.esPermiso).length;
+  }
+
+  ngOnInit() {
+    this.updateTime();
+    this.timer = setInterval(() => this.updateTime(), 1000);
+    this.loadTodayLog();
+    this.backButtonSub = this.platform.backButton.subscribeWithPriority(10, () => {
+      this.zone.run(() => { this.showExitConfirm = true; });
+    });
+    ScreenOrientation.lock({ orientation: 'landscape' }).catch(() => {});
+    this.onlineSub = this.connectivity.isOnline$.subscribe(online => {
+      this.zone.run(() => {
+        this.isOnline = online;
+        if (online && this.pendingCount > 0) {
+          this.syncPending();
+        }
+      });
+    });
+    this.slowConnSub = this.connectivity.isSlowConnection$.subscribe(slow => {
+      this.zone.run(() => { this.isSlowConnection = slow; });
+    });
+    this.connInfoSub = this.connectivity.connectionInfo$.subscribe(info => {
+      this.zone.run(() => { this.connectionType = info.effectiveType; });
+    });
+    this.pendingCount = this.offlineQueue.getQueue().length;
+  }
+
+  ngOnDestroy() {
+    if (this.timer) clearInterval(this.timer);
+    if (this.backButtonSub) this.backButtonSub.unsubscribe();
+    if (this.onlineSub) this.onlineSub.unsubscribe();
+    if (this.slowConnSub) this.slowConnSub.unsubscribe();
+    if (this.connInfoSub) this.connInfoSub.unsubscribe();
+    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+  }
+
+  confirmExit() {
+    App.exitApp();
+  }
+
+  cancelExit() {
+    this.showExitConfirm = false;
+  }
+
+  private updateTime() {
+    const now = new Date();
+    this.currentDate = now.toLocaleDateString('es-MX', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    this.currentTime = `${hours}:${minutes}:${seconds}`;
+  }
+
+  private formatTime(dateStr: string): string {
+    const d = new Date(dateStr.replace(' ', 'T'));
+    const hours = d.getHours().toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const seconds = d.getSeconds().toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
+  getInitials(name: string): string {
+    return name.split(' ').filter(w => w.length > 0).slice(0, 2)
+      .map(w => w[0]).join('').toUpperCase();
+  }
+
+  loadTodayLog() {
+    if (!this.isOnline) return;
+    this.http.get<any[]>(`${this.apiUrl}/entry-log/today`).subscribe({
+      next: (entries) => {
+        this.entryLog = entries.map(e => ({
+          id:             e.Id,
+          time:           this.formatTime(e.FechaHora),
+          employeeId:     e.ClaveChofer,
+          name:           e.NombreCompleto,
+          department:     e.Departamento,
+          status:         e.Estatus as 'ADMITTED' | 'DENIED',
+          tipoMovimiento: e.TipoMovimiento as 'ENTRADA' | 'SALIDA',
+          registradoPor:  e.RegistradoPor,
+          esPermiso:      !!e.EsPermiso,
+        }));
+      },
+      error: (err) => {
+        if (err.status !== 0) console.error('Error cargando log:', err);
+      },
+    });
+  }
+
+  pressKey(key: string) {
+    if (this.enteredId.length < 5) {
+      this.enteredId += key;
+      this.currentEmployee = null;
+      this.employeeNotFound = false;
+      if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+    }
+  }
+
+  pressBackspace() {
+    this.enteredId = this.enteredId.slice(0, -1);
+    this.currentEmployee = null;
+    this.employeeNotFound = false;
+    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+  }
+
+  pressEnter() {
+    if (!this.enteredId || this.isLoading) return;
+    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+    this.searchDebounceTimer = setTimeout(() => this.doSearch(), 300);
+  }
+
+  private doSearch() {
+    this.isLoading = true;
+    this.currentEmployee = null;
+    this.employeeNotFound = false;
+    this.employeePhoto = null;
+
+    const original = this.enteredId;
+    const stripped = String(parseInt(original, 10));
+    const tryFirst = (original.startsWith('0') && stripped !== original) ? stripped : original;
+    const tryFallback = tryFirst !== original ? original : null;
+
+    const cached = this.getCachedEmployee(tryFirst);
+    if (cached) {
+      this.setEmployee(cached, tryFirst);
+      return;
+    }
+
+    this.http.get<Employee>(`${this.apiUrl}/employees/${tryFirst}`).subscribe({
+      next: (employee) => {
+        this.cacheEmployee(tryFirst, employee);
+        this.setEmployee(employee, tryFirst);
+      },
+      error: () => {
+        if (tryFallback) {
+          this.http.get<Employee>(`${this.apiUrl}/employees/${tryFallback}`).subscribe({
+            next: (employee) => {
+              this.cacheEmployee(tryFallback, employee);
+              this.setEmployee(employee, tryFallback);
+            },
+            error: () => {
+              this.employeeNotFound = true;
+              this.isLoading = false;
+            },
+          });
+        } else {
+          this.employeeNotFound = true;
+          this.isLoading = false;
+        }
+      },
+    });
+  }
+
+  private setEmployee(employee: Employee, id: string) {
+    this.currentEmployee = employee;
+    this.isLoading = false;
+    if (employee.TieneFoto) {
+      // En 3G carga thumbnail automáticamente; en buena conexión carga foto original
+      this.loadPhoto(id, this.isSlowConnection);
+    }
+  }
+
+  loadPhoto(id: string, thumbnail = false) {
+    this.loadingPhoto = true;
+    const endpoint = thumbnail ? `${this.apiUrl}/employees/${id}/foto/thumbnail` : `${this.apiUrl}/employees/${id}/foto`;
+    this.http.get<{ foto: string }>(endpoint).subscribe({
+      next: (res) => {
+        this.employeePhoto = `data:image/jpeg;base64,${res.foto}`;
+        this.loadingPhoto = false;
+      },
+      error: () => {
+        this.employeePhoto = null;
+        this.loadingPhoto = false;
+      },
+    });
+  }
+
+  private cacheEmployee(id: string, employee: Employee) {
+    try {
+      localStorage.setItem(`emp_${id}`, JSON.stringify({ data: employee, ts: Date.now() }));
+    } catch { /* ignore */ }
+  }
+
+  private getCachedEmployee(id: string): Employee | null {
+    try {
+      const raw = localStorage.getItem(`emp_${id}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (Date.now() - parsed.ts > this.CACHE_TTL) {
+        localStorage.removeItem(`emp_${id}`);
+        return null;
+      }
+      return parsed.data;
+    } catch {
+      return null;
+    }
+  }
+
+  admitEmployee() {
+    if (!this.currentEmployee || this.isLoading) return;
+    this.isLoading = true;
+    this.admitError = '';
+
+    this.http.post<any>(`${this.apiUrl}/entry-log`, {
+      numEmpleado:    this.currentEmployee.NumEmpleado,
+      tipoMovimiento: this.tipoMovimiento,
+    }).subscribe({
+      next: () => {
+        this.loadTodayLog();
+        this.resetForm();
+        this.isLoading = false;
+        this.showSuccess(this.tipoMovimiento === 'ENTRADA' ? 'Entrada registrada correctamente' : 'Salida registrada correctamente');
+      },
+      error: (err) => {
+        if (err.status === 0) {
+          this.offlineQueue.add({
+            numEmpleado: this.currentEmployee!.NumEmpleado,
+            tipoMovimiento: this.tipoMovimiento,
+            esPermiso: false,
+            fotoTicket: null,
+          });
+          this.pendingCount = this.offlineQueue.getQueue().length;
+          this.showSuccess('Sin conexión. Registro guardado para sincronizar.');
+          this.resetForm();
+          this.isLoading = false;
+          return;
+        }
+        this.admitError = this.parseError(err);
+        this.isLoading = false;
+        this.autoCloseAdmitError();
+      },
+    });
+  }
+
+  async salidarConPermiso() {
+    if (!this.currentEmployee || this.isLoading) return;
+
+    let fotoBase64: string | null = null;
+    try {
+      const photo = await Camera.getPhoto({
+        quality: 80,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera,
+        saveToGallery: false,
+      });
+      fotoBase64 = photo.base64String ?? null;
+    } catch {
+      return;
+    }
+
+    if (!fotoBase64) return;
+    this.isLoading = true;
+    this.admitError = '';
+
+    this.http.post<any>(`${this.apiUrl}/entry-log`, {
+      numEmpleado:    this.currentEmployee.NumEmpleado,
+      tipoMovimiento: 'SALIDA',
+      esPermiso:      true,
+      fotoTicket:     fotoBase64,
+    }).subscribe({
+      next: () => {
+        this.loadTodayLog();
+        this.resetForm();
+        this.isLoading = false;
+        this.showSuccess('Salida con permiso registrada');
+      },
+      error: (err) => {
+        if (err.status === 0) {
+          this.offlineQueue.add({
+            numEmpleado: this.currentEmployee!.NumEmpleado,
+            tipoMovimiento: 'SALIDA',
+            esPermiso: true,
+            fotoTicket: fotoBase64,
+          });
+          this.pendingCount = this.offlineQueue.getQueue().length;
+          this.showSuccess('Sin conexión. Registro guardado para sincronizar.');
+          this.resetForm();
+          this.isLoading = false;
+          return;
+        }
+        this.admitError = this.parseError(err);
+        this.isLoading = false;
+        this.autoCloseAdmitError();
+      },
+    });
+  }
+
+  private showSuccess(message: string) {
+    this.successMessage = message;
+    this.showSuccessModal = true;
+    if (this.successTimer) clearTimeout(this.successTimer);
+    this.successTimer = setTimeout(() => { this.showSuccessModal = false; }, 1500);
+  }
+
+  viewPhoto(id: number) {
+    this.selectedPhoto = null;
+    this.loadingPhoto = true;
+    this.showPhotoModal = true;
+    this.http.get<{ foto: string }>(`${this.apiUrl}/entry-log/${id}/foto`).subscribe({
+      next: (res) => {
+        this.selectedPhoto = `data:image/jpeg;base64,${res.foto}`;
+        this.loadingPhoto = false;
+      },
+      error: () => { this.loadingPhoto = false; },
+    });
+  }
+
+  closePhotoModal() {
+    this.showPhotoModal = false;
+    this.selectedPhoto = null;
+  }
+
+  exportCSV() {
+    const header = ['Hora', 'Clave', 'Nombre', 'Departamento', 'Movimiento', 'Permiso', 'Registrado Por'];
+    const rows = this.entryLog.map(e => [
+      e.time, e.employeeId, `"${e.name}"`, `"${e.department}"`,
+      e.tipoMovimiento, e.esPermiso ? 'Sí' : 'No', `"${e.registradoPor}"`
+    ]);
+    const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fecha = new Date().toLocaleDateString('es-MX').replace(/\//g, '-');
+    a.href = url;
+    a.download = `registro-acceso-${fecha}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private parseError(err: any): string {
+    if (err.status === 0)   return 'Sin conexión al servidor. Verifica tu red Wi-Fi.';
+    if (err.status === 403) return 'Empleado inactivo — acceso denegado.';
+    if (err.status === 404) return 'Empleado no encontrado en el sistema.';
+    if (err.status >= 500)  return 'Error en el servidor. Contacta a Sistemas.';
+    return err?.error?.message || 'Error desconocido. Intenta de nuevo.';
+  }
+
+  private autoCloseAdmitError() {
+    if (this.admitErrorTimer) clearTimeout(this.admitErrorTimer);
+    this.admitErrorTimer = setTimeout(() => { this.admitError = ''; }, 5000);
+  }
+
+  syncPending() {
+    const queue = this.offlineQueue.getQueue();
+    if (!queue.length || !this.isOnline || this.isLoading) return;
+    this.isLoading = true;
+    this.showSuccess(`Sincronizando ${queue.length} registro(s)...`);
+    let processed = 0;
+    for (const item of queue) {
+      this.http.post<any>(`${this.apiUrl}/entry-log`, {
+        numEmpleado: item.numEmpleado,
+        tipoMovimiento: item.tipoMovimiento,
+        esPermiso: item.esPermiso,
+        fotoTicket: item.fotoTicket,
+      }).subscribe({
+        next: () => {
+          this.offlineQueue.remove(item.id);
+          this.pendingCount = this.offlineQueue.getQueue().length;
+          this.loadTodayLog();
+          processed++;
+          if (processed >= queue.length) this.isLoading = false;
+        },
+        error: () => {
+          processed++;
+          if (processed >= queue.length) this.isLoading = false;
+        },
+      });
+    }
+  }
+
+  private resetForm() {
+    this.enteredId = '';
+    this.currentEmployee = null;
+    this.employeePhoto = null;
+    this.loadingPhoto = false;
+    this.employeeNotFound = false;
+  }
+}

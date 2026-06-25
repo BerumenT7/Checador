@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Checador</string>
+    <string name="title_activity_main">Checador</string>
+    <string name="package_name">com.checador.entradas</string>
+    <string name="custom_url_scheme">com.checador.entradas</string>
+</resources>
