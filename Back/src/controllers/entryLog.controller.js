@@ -3,7 +3,7 @@ const EmployeeModel  = require('../models/employee.model');
 
 async function admitEmployee(req, res, next) {
   try {
-    const { numEmpleado, tipoMovimiento = 'ENTRADA', esPermiso = false, fotoTicket = null } = req.body;
+    const { numEmpleado, tipoMovimiento = 'ENTRADA', esPermiso = false, fotoTicket = null, empresa = 'SIETE' } = req.body;
 
     if (!['ENTRADA', 'SALIDA'].includes(tipoMovimiento)) {
       return res.status(400).json({ message: 'TipoMovimiento debe ser ENTRADA o SALIDA.' });
@@ -28,7 +28,8 @@ async function admitEmployee(req, res, next) {
       tipoMovimiento,
       registradoPor,
       esPermiso,
-      fotoTicket
+      fotoTicket,
+      empresa
     );
 
     res.status(201).json({ message: 'Registro guardado', id: newId, employee, tipoMovimiento, esPermiso });
@@ -39,7 +40,8 @@ async function admitEmployee(req, res, next) {
 
 async function getTodayLog(req, res, next) {
   try {
-    const entries = await EntryLogModel.getTodayEntries();
+    const empresa = req.query.empresa || null;
+    const entries = await EntryLogModel.getTodayEntries(200, empresa);
     res.json(entries);
   } catch (error) {
     next(error);

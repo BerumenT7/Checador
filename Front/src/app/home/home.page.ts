@@ -148,8 +148,11 @@ export class HomePage implements OnInit, OnDestroy {
     this.onlineSub = this.connectivity.isOnline$.subscribe(online => {
       this.zone.run(() => {
         this.isOnline = online;
-        if (online && this.pendingCount > 0) {
-          this.syncPending();
+        if (online) {
+          this.loadTodayLog();
+          if (this.pendingCount > 0) {
+            this.syncPending();
+          }
         }
       });
     });
@@ -203,7 +206,7 @@ export class HomePage implements OnInit, OnDestroy {
 
   loadTodayLog() {
     if (!this.isOnline) return;
-    this.http.get<any[]>(`${this.apiUrl}/entry-log/today`).subscribe({
+    this.http.get<any[]>(`${this.apiUrl}/entry-log/today?empresa=${environment.empresa}`).subscribe({
       next: (entries) => {
         this.entryLog = entries.map(e => ({
           id:             e.Id,
@@ -340,6 +343,7 @@ export class HomePage implements OnInit, OnDestroy {
     this.http.post<any>(`${this.apiUrl}/entry-log`, {
       numEmpleado:    this.currentEmployee.NumEmpleado,
       tipoMovimiento: this.tipoMovimiento,
+      empresa:        environment.empresa,
     }).subscribe({
       next: () => {
         this.loadTodayLog();

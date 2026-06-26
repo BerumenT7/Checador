@@ -1,6 +1,6 @@
 const { getPool, sql } = require('../config/database');
 
-async function createEntry(claveChofer, nombreCompleto, departamento, estatus, tipoMovimiento, registradoPor, esPermiso = 0, fotoTicketBase64 = null) {
+async function createEntry(claveChofer, nombreCompleto, departamento, estatus, tipoMovimiento, registradoPor, esPermiso = 0, fotoTicketBase64 = null, empresa = 'SIETE') {
   const pool = getPool();
   const fotoBuffer = fotoTicketBase64 ? Buffer.from(fotoTicketBase64, 'base64') : null;
   const result = await pool.request()
@@ -12,21 +12,26 @@ async function createEntry(claveChofer, nombreCompleto, departamento, estatus, t
     .input('registradoPor',   sql.NVarChar(200),      registradoPor)
     .input('esPermiso',       sql.Bit,                esPermiso ? 1 : 0)
     .input('fotoTicket',      sql.VarBinary(sql.MAX), fotoBuffer)
+    .input('empresa',         sql.NVarChar(50),       empresa)
     .query(`
       INSERT INTO RegistroEntradas
-        (ClaveChofer, NombreCompleto, Departamento, Estatus, TipoMovimiento, RegistradoPor, EsPermiso, FotoTicket)
+        (ClaveChofer, NombreCompleto, Departamento, Estatus, TipoMovimiento, RegistradoPor, EsPermiso, FotoTicket, Empresa)
       OUTPUT INSERTED.Id
       VALUES
-        (@claveChofer, @nombreCompleto, @departamento, @estatus, @tipoMovimiento, @registradoPor, @esPermiso, @fotoTicket)
+        (@claveChofer, @nombreCompleto, @departamento, @estatus, @tipoMovimiento, @registradoPor, @esPermiso, @fotoTicket, @empresa)
     `);
   return result.recordset[0].Id;
 }
 
-async function getTodayEntries(limit = 200) {
+async function getTodayEntries(limit = 200, empresa = null) {
   const pool = getPool();
-  const result = await pool.request()
-    .input('limit', sql.Int, limit)
-    .query(`
+  const req = pool.request().input('limit', sql.Int, limit);
+  let empresaFilter = '';
+  if (empresa) {
+    req.input('empresa', sql.NVarChar(50), empresa);
+    empresaFilter = 'AND Empresa = @empresa';
+  }
+  const result = await req.query(`
       SELECT TOP (@limit)
         Id,
         ClaveChofer,
@@ -36,9 +41,11 @@ async function getTodayEntries(limit = 200) {
         TipoMovimiento,
         RegistradoPor,
         EsPermiso,
+        Empresa,
         CONVERT(varchar(19), FechaHora, 120) AS FechaHora
       FROM RegistroEntradas
       WHERE CAST(FechaHora AS DATE) = CAST(GETDATE() AS DATE)
+      ${empresaFilter}
       ORDER BY FechaHora DESC
     `);
   return result.recordset;
