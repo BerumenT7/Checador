@@ -29,6 +29,7 @@ import {
   checkmarkCircle,
   searchOutline,
   chevronDownOutline,
+  optionsOutline,
 } from 'ionicons/icons';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../services/auth.service';
@@ -98,6 +99,9 @@ export class HomePage implements OnInit, OnDestroy {
   historyLoading = false;
   historyNotFound = false;
   showFullHistory = false;
+  showHistoryFilter = false;
+  historyFilterTipo: 'TODAS' | 'ENTRADA' | 'SALIDA' = 'TODAS';
+  historyFilterOrder: 'DESC' | 'ASC' = 'DESC';
 
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly CACHE_TTL = 5 * 60 * 1000;
@@ -134,6 +138,7 @@ export class HomePage implements OnInit, OnDestroy {
       checkmarkCircle,
     searchOutline,
     chevronDownOutline,
+    optionsOutline,
     });
   }
 
@@ -149,6 +154,9 @@ export class HomePage implements OnInit, OnDestroy {
     this.historyFullEntries = [];
     this.historyNotFound = false;
     this.showFullHistory = false;
+    this.showHistoryFilter = false;
+    this.historyFilterTipo = 'TODAS';
+    this.historyFilterOrder = 'DESC';
   }
 
   closeHistoryModal() {
@@ -198,6 +206,17 @@ export class HomePage implements OnInit, OnDestroy {
       },
       error: () => { this.historyLoading = false; },
     });
+  }
+
+  get historyFullEntriesFiltered(): any[] {
+    let result = [...this.historyFullEntries];
+    if (this.historyFilterTipo !== 'TODAS') {
+      result = result.filter(e => e.TipoMovimiento === this.historyFilterTipo);
+    }
+    if (this.historyFilterOrder === 'ASC') {
+      result.reverse();
+    }
+    return result;
   }
 
   get totalEntradas(): number {

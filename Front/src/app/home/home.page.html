@@ -390,9 +390,34 @@
         </button>
 
         <ng-container *ngIf="showFullHistory">
-          <div class="history-section-title" style="margin-top:16px">Historial completo</div>
-          <div class="history-entries" *ngIf="historyFullEntries.length > 0; else noFullHistory">
-            <div class="history-entry" *ngFor="let e of historyFullEntries">
+          <div class="history-full-header">
+            <div class="history-section-title">Historial completo</div>
+            <button class="history-filter-toggle" (click)="showHistoryFilter = !showHistoryFilter"
+                    [class.active]="showHistoryFilter">
+              <ion-icon name="options-outline"></ion-icon>
+            </button>
+          </div>
+
+          <div class="history-filter-panel" *ngIf="showHistoryFilter">
+            <div class="history-filter-group">
+              <span class="history-filter-label">Orden</span>
+              <div class="history-filter-pills">
+                <button [class.active]="historyFilterOrder === 'DESC'" (click)="historyFilterOrder = 'DESC'">Descendente</button>
+                <button [class.active]="historyFilterOrder === 'ASC'"  (click)="historyFilterOrder = 'ASC'">Ascendente</button>
+              </div>
+            </div>
+            <div class="history-filter-group">
+              <span class="history-filter-label">Tipo</span>
+              <div class="history-filter-pills">
+                <button [class.active]="historyFilterTipo === 'TODAS'"   (click)="historyFilterTipo = 'TODAS'">Todas</button>
+                <button [class.active]="historyFilterTipo === 'ENTRADA'" (click)="historyFilterTipo = 'ENTRADA'">Entradas</button>
+                <button [class.active]="historyFilterTipo === 'SALIDA'"  (click)="historyFilterTipo = 'SALIDA'">Salidas</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="history-entries" *ngIf="historyFullEntriesFiltered.length > 0; else noFullHistory">
+            <div class="history-entry" *ngFor="let e of historyFullEntriesFiltered">
               <span class="history-entry-time">{{ e.dateDisplay }}&nbsp;&nbsp;{{ e.timeDisplay }}</span>
               <span class="history-tipo-badge" [class.entrada]="e.TipoMovimiento === 'ENTRADA'" [class.salida]="e.TipoMovimiento === 'SALIDA'">
                 <ion-icon [name]="e.TipoMovimiento === 'ENTRADA' ? 'enter-outline' : 'exit-outline'"></ion-icon>
