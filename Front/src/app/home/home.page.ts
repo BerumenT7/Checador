@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { IonContent, IonIcon } from '@ionic/angular/standalone';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -26,6 +27,8 @@ import {
   imageOutline,
   refreshOutline,
   checkmarkCircle,
+  searchOutline,
+  chevronDownOutline,
 } from 'ionicons/icons';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../services/auth.service';
@@ -58,7 +61,7 @@ export interface EntryLogItem {
   templateUrl: 'home.page.html',
   styleUrls: ['home.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonContent, IonIcon],
+  imports: [CommonModule, FormsModule, IonContent, IonIcon],
 })
 export class HomePage implements OnInit, OnDestroy {
   enteredId = '';
@@ -87,6 +90,15 @@ export class HomePage implements OnInit, OnDestroy {
   private onlineSub: Subscription | null = null;
   private slowConnSub: Subscription | null = null;
   private connInfoSub: Subscription | null = null;
+  showHistoryModal = false;
+  historySearchId = '';
+  historyEmployee: any = null;
+  historyEntries: any[] = [];
+  historyFullEntries: any[] = [];
+  historyLoading = false;
+  historyNotFound = false;
+  showFullHistory = false;
+
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly CACHE_TTL = 5 * 60 * 1000;
 
@@ -120,11 +132,72 @@ export class HomePage implements OnInit, OnDestroy {
       imageOutline,
       refreshOutline,
       checkmarkCircle,
+    searchOutline,
+    chevronDownOutline,
     });
   }
 
   setTipo(tipo: 'ENTRADA' | 'SALIDA') {
     this.tipoMovimiento = tipo;
+  }
+
+  openHistoryModal() {
+    this.showHistoryModal = true;
+    this.historySearchId = '';
+    this.historyEmployee = null;
+    this.historyEntries = [];
+    this.historyFullEntries = [];
+    this.historyNotFound = false;
+    this.showFullHistory = false;
+  }
+
+  closeHistoryModal() {
+    this.showHistoryModal = false;
+  }
+
+  searchHistory() {
+    const id = this.historySearchId.trim();
+    if (!id) return;
+    this.historyLoading = true;
+    this.historyEmployee = null;
+    this.historyEntries = [];
+    this.historyFullEntries = [];
+    this.historyNotFound = false;
+    this.showFullHistory = false;
+    this.http.get<any>(`${this.apiUrl}/employees/${id}`).subscribe({
+      next: (emp) => {
+        this.historyEmployee = emp;
+        this.http.get<any[]>(`${this.apiUrl}/entry-log/history/${id}?soloHoy=true`).subscribe({
+          next: (entries) => {
+            this.historyEntries = entries.map(e => ({ ...e, timeDisplay: this.formatTime(e.FechaHora) }));
+            this.historyLoading = false;
+          },
+          error: () => { this.historyLoading = false; },
+        });
+      },
+      error: (err) => {
+        if (err.status === 404) this.historyNotFound = true;
+        this.historyLoading = false;
+      },
+    });
+  }
+
+  loadFullHistory() {
+    if (!this.historyEmployee) return;
+    this.historyLoading = true;
+    this.showFullHistory = true;
+    const id = this.historyEmployee.NumEmpleado;
+    this.http.get<any[]>(`${this.apiUrl}/entry-log/history/${id}?soloHoy=false`).subscribe({
+      next: (entries) => {
+        this.historyFullEntries = entries.map(e => ({
+          ...e,
+          timeDisplay: this.formatTime(e.FechaHora),
+          dateDisplay: e.FechaHora.substring(0, 10),
+        }));
+        this.historyLoading = false;
+      },
+      error: () => { this.historyLoading = false; },
+    });
   }
 
   get totalEntradas(): number {

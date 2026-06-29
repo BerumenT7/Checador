@@ -25,10 +25,15 @@
         <span class="operator-name">{{ auth.getUser()?.nombreCompleto }}</span>
         <span class="operator-dept">{{ auth.getUser()?.departamento }}</span>
       </div>
-      <button class="logout-btn" (click)="auth.logout()">
-        <ion-icon name="log-out-outline"></ion-icon>
-        Cerrar sesión
-      </button>
+      <div class="operator-actions">
+        <button class="search-history-btn" (click)="openHistoryModal()" title="Buscar historial">
+          <ion-icon name="search-outline"></ion-icon>
+        </button>
+        <button class="logout-btn" (click)="auth.logout()">
+          <ion-icon name="log-out-outline"></ion-icon>
+          Cerrar sesión
+        </button>
+      </div>
     </div>
 
     <!-- ───── MAIN PANELS ───── -->
@@ -314,6 +319,93 @@
           <p>No se pudo cargar la foto</p>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ───── HISTORIAL MODAL ───── -->
+  <div class="history-overlay" *ngIf="showHistoryModal" (click)="closeHistoryModal()">
+    <div class="history-dialog" (click)="$event.stopPropagation()">
+
+      <div class="history-header">
+        <div class="history-title">
+          <ion-icon name="search-outline"></ion-icon>
+          Historial de Empleado
+        </div>
+        <button class="history-close-btn" (click)="closeHistoryModal()">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="history-search-row">
+        <input type="text" class="history-input" placeholder="ID de empleado..."
+               [(ngModel)]="historySearchId" (keyup.enter)="searchHistory()" autofocus>
+        <button class="history-search-btn" (click)="searchHistory()" [disabled]="historyLoading || !historySearchId.trim()">
+          <ion-icon name="search-outline"></ion-icon>
+          Buscar
+        </button>
+      </div>
+
+      <div class="history-loading" *ngIf="historyLoading">
+        <ion-icon name="reload" class="spinning"></ion-icon> Buscando...
+      </div>
+
+      <div class="history-not-found" *ngIf="historyNotFound && !historyLoading">
+        No se encontró empleado con ID: <strong>{{ historySearchId }}</strong>
+      </div>
+
+      <ng-container *ngIf="historyEmployee && !historyLoading">
+
+        <div class="history-employee-card">
+          <div class="history-avatar">{{ getInitials(historyEmployee.NombreCompleto) }}</div>
+          <div class="history-emp-info">
+            <div class="history-emp-name">{{ historyEmployee.NombreCompleto }}</div>
+            <div class="history-emp-dept">{{ historyEmployee.Departamento }}</div>
+          </div>
+          <span class="history-emp-status" [class.active]="historyEmployee.Estatus === 'ACTIVE'">
+            {{ historyEmployee.Estatus === 'ACTIVE' ? 'ACTIVO' : 'INACTIVO' }}
+          </span>
+        </div>
+
+        <div class="history-section-title">Movimientos de hoy</div>
+
+        <div class="history-entries" *ngIf="historyEntries.length > 0; else noEntriesToday">
+          <div class="history-entry" *ngFor="let e of historyEntries">
+            <span class="history-entry-time">{{ e.timeDisplay }}</span>
+            <span class="history-tipo-badge" [class.entrada]="e.TipoMovimiento === 'ENTRADA'" [class.salida]="e.TipoMovimiento === 'SALIDA'">
+              <ion-icon [name]="e.TipoMovimiento === 'ENTRADA' ? 'enter-outline' : 'exit-outline'"></ion-icon>
+              {{ e.TipoMovimiento }}
+            </span>
+            <span class="history-permiso-badge" *ngIf="e.EsPermiso">PERMISO 📷</span>
+            <span class="history-entry-by">{{ e.RegistradoPor }}</span>
+          </div>
+        </div>
+        <ng-template #noEntriesToday>
+          <div class="history-empty">Sin movimientos hoy</div>
+        </ng-template>
+
+        <button class="history-full-btn" (click)="loadFullHistory()" *ngIf="!showFullHistory">
+          <ion-icon name="chevron-down-outline"></ion-icon>
+          Historial completo
+        </button>
+
+        <ng-container *ngIf="showFullHistory">
+          <div class="history-section-title" style="margin-top:16px">Historial completo</div>
+          <div class="history-entries" *ngIf="historyFullEntries.length > 0; else noFullHistory">
+            <div class="history-entry" *ngFor="let e of historyFullEntries">
+              <span class="history-entry-time">{{ e.dateDisplay }}&nbsp;&nbsp;{{ e.timeDisplay }}</span>
+              <span class="history-tipo-badge" [class.entrada]="e.TipoMovimiento === 'ENTRADA'" [class.salida]="e.TipoMovimiento === 'SALIDA'">
+                <ion-icon [name]="e.TipoMovimiento === 'ENTRADA' ? 'enter-outline' : 'exit-outline'"></ion-icon>
+                {{ e.TipoMovimiento }}
+              </span>
+              <span class="history-permiso-badge" *ngIf="e.EsPermiso">PERMISO 📷</span>
+            </div>
+          </div>
+          <ng-template #noFullHistory>
+            <div class="history-empty">Sin registros históricos</div>
+          </ng-template>
+        </ng-container>
+
+      </ng-container>
     </div>
   </div>
 

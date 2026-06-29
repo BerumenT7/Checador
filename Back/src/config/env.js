@@ -1,7 +1,7 @@
 module.exports = {
   PORT: process.env.PORT || 3000,
   JWT_SECRET: process.env.JWT_SECRET || 'checador_secret_change_in_prod',
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '8h',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
 
   DB_CONFIG: {
     server:   process.env.DB_SERVER,

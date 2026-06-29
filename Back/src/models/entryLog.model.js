@@ -23,16 +23,16 @@ async function createEntry(claveChofer, nombreCompleto, departamento, estatus, t
   return result.recordset[0].Id;
 }
 
-async function getTodayEntries(limit = 200, empresa = null) {
+async function getTodayEntries(empresa = null) {
   const pool = getPool();
-  const req = pool.request().input('limit', sql.Int, limit);
+  const req = pool.request();
   let empresaFilter = '';
   if (empresa) {
     req.input('empresa', sql.NVarChar(50), empresa);
     empresaFilter = 'AND Empresa = @empresa';
   }
   const result = await req.query(`
-      SELECT TOP (@limit)
+      SELECT
         Id,
         ClaveChofer,
         NombreCompleto,
@@ -61,4 +61,13 @@ async function getPhotoById(id) {
   return Buffer.from(row.FotoTicket).toString('base64');
 }
 
-module.exports = { createEntry, getTodayEntries, getPhotoById };
+async function getEmployeeHistory(claveChofer, soloHoy = true) {
+  const pool = getPool();
+  const result = await pool.request()
+    .input('ClaveChofer', sql.NVarChar(10), claveChofer)
+    .input('SoloHoy',     sql.Bit,          soloHoy ? 1 : 0)
+    .execute('sp_HistorialEmpleado');
+  return result.recordset;
+}
+
+module.exports = { createEntry, getTodayEntries, getPhotoById, getEmployeeHistory };

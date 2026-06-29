@@ -41,7 +41,7 @@ async function admitEmployee(req, res, next) {
 async function getTodayLog(req, res, next) {
   try {
     const empresa = req.query.empresa || null;
-    const entries = await EntryLogModel.getTodayEntries(200, empresa);
+    const entries = await EntryLogModel.getTodayEntries(empresa);
     res.json(entries);
   } catch (error) {
     next(error);
@@ -60,4 +60,15 @@ async function getEntryPhoto(req, res, next) {
   }
 }
 
-module.exports = { admitEmployee, getTodayLog, getEntryPhoto };
+async function getEmployeeHistoryCtrl(req, res, next) {
+  try {
+    const { id } = req.params;
+    const soloHoy = req.query.soloHoy !== 'false';
+    const entries = await EntryLogModel.getEmployeeHistory(id, soloHoy);
+    res.json(entries);
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { admitEmployee, getTodayLog, getEntryPhoto, getEmployeeHistoryCtrl };
