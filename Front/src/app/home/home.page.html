@@ -338,6 +338,7 @@
 
       <div class="history-search-row">
         <input type="text" class="history-input" placeholder="ID de empleado..."
+               inputmode="numeric" pattern="[0-9]*"
                [(ngModel)]="historySearchId" (keyup.enter)="searchHistory()" autofocus>
         <button class="history-search-btn" (click)="searchHistory()" [disabled]="historyLoading || !historySearchId.trim()">
           <ion-icon name="search-outline"></ion-icon>
