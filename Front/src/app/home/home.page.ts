@@ -102,6 +102,7 @@ export class HomePage implements OnInit, OnDestroy {
   showHistoryFilter = false;
   historyFilterTipo: 'TODAS' | 'ENTRADA' | 'SALIDA' = 'TODAS';
   historyFilterOrder: 'DESC' | 'ASC' = 'DESC';
+  logFilterRegistradoPor: 'TODOS' | 'Caseta 1' | 'Caseta 2' = 'TODOS';
 
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly CACHE_TTL = 5 * 60 * 1000;
@@ -206,6 +207,11 @@ export class HomePage implements OnInit, OnDestroy {
       },
       error: () => { this.historyLoading = false; },
     });
+  }
+
+  get filteredEntryLog(): EntryLogItem[] {
+    if (this.logFilterRegistradoPor === 'TODOS') return this.entryLog;
+    return this.entryLog.filter(e => e.registradoPor === this.logFilterRegistradoPor);
   }
 
   get historyFullEntriesFiltered(): any[] {
@@ -544,7 +550,7 @@ export class HomePage implements OnInit, OnDestroy {
 
   exportCSV() {
     const header = ['Hora', 'Clave', 'Nombre', 'Departamento', 'Movimiento', 'Permiso', 'Registrado Por'];
-    const rows = this.entryLog.map(e => [
+    const rows = this.filteredEntryLog.map(e => [
       e.time, e.employeeId, `"${e.name}"`, `"${e.department}"`,
       e.tipoMovimiento, e.esPermiso ? 'Sí' : 'No', `"${e.registradoPor}"`
     ]);

@@ -4,6 +4,13 @@ const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config/env');
 
 const ALLOWED_DEPARTMENTS = ['sistemas', 'seguridad'];
 
+// Cuentas virtuales (no ligadas a un empleado real en Choferes): casetas, kioscos, etc.
+// Se identifican porque el LEFT JOIN no encuentra Departamento.
+const VIRTUAL_USER_NAMES = {
+  '12000': 'Caseta 1',
+  '12001': 'Caseta 2',
+};
+
 async function login(req, res, next) {
   try {
     const { claveChofer, password } = req.body;
@@ -32,7 +39,7 @@ async function login(req, res, next) {
           )) AS NombreCompleto,
           c.Departamento
         FROM [auth].[UsuariosHRMS] u
-        INNER JOIN [dbo].[Choferes] c ON c.ClaveChofer = u.ClaveChoferLink
+        LEFT JOIN [dbo].[Choferes] c ON c.ClaveChofer = u.ClaveChoferLink
         WHERE u.ClaveChoferLink = @claveChofer
           AND u.PasswordHash    = @password
           AND u.Activo          = 1
@@ -44,19 +51,27 @@ async function login(req, res, next) {
       return res.status(401).json({ message: 'Credenciales incorrectas.' });
     }
 
-    const dept = (user.Departamento || '').toLowerCase();
-    const allowed = ALLOWED_DEPARTMENTS.some(d => dept.includes(d));
+    const isVirtualUser = !user.Departamento;
 
-    if (!allowed) {
-      return res.status(403).json({
-        message: `Acceso denegado. Solo personal de Sistemas y Seguridad puede acceder.`,
-      });
+    if (!isVirtualUser) {
+      const dept = (user.Departamento || '').toLowerCase();
+      const allowed = ALLOWED_DEPARTMENTS.some(d => dept.includes(d));
+
+      if (!allowed) {
+        return res.status(403).json({
+          message: `Acceso denegado. Solo personal de Sistemas y Seguridad puede acceder.`,
+        });
+      }
     }
+
+    const nombreCompleto = isVirtualUser
+      ? (VIRTUAL_USER_NAMES[user.ClaveChoferLink] || `Caseta ${user.ClaveChoferLink}`)
+      : user.NombreCompleto.trim();
 
     const payload = {
       claveChofer:   user.ClaveChoferLink,
-      nombreCompleto: user.NombreCompleto.trim(),
-      departamento:  user.Departamento,
+      nombreCompleto,
+      departamento:  isVirtualUser ? 'CASETA' : user.Departamento,
       rol:           user.RolApp,
     };
 

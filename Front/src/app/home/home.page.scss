@@ -572,6 +572,29 @@
   margin-bottom: 14px;
 }
 
+.log-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.log-filter-select {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 7px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  cursor: pointer;
+  outline: none;
+
+  &:hover { background: rgba(255, 255, 255, 0.1); }
+  &:focus { border-color: #4d9be6; }
+
+  option { background: #0f1e33; color: #e8f0f8; }
+}
+
 .export-btn {
   background: rgba(77, 155, 230, 0.1);
   border: 1px solid rgba(77, 155, 230, 0.3);

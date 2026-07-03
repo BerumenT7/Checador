@@ -232,10 +232,17 @@
     <div class="entry-log-panel">
       <div class="log-header">
         <div class="log-title">REGISTRO DEL DÍA</div>
-        <button class="export-btn" (click)="exportCSV()" [disabled]="entryLog.length === 0">
-          <ion-icon name="download-outline"></ion-icon>
-          Exportar CSV
-        </button>
+        <div class="log-header-actions">
+          <select class="log-filter-select" [(ngModel)]="logFilterRegistradoPor" title="Filtrar por Registrado por">
+            <option value="TODOS">Registrado por: Todos</option>
+            <option value="Caseta 1">Registrado por: Caseta 1</option>
+            <option value="Caseta 2">Registrado por: Caseta 2</option>
+          </select>
+          <button class="export-btn" (click)="exportCSV()" [disabled]="filteredEntryLog.length === 0">
+            <ion-icon name="download-outline"></ion-icon>
+            Exportar CSV
+          </button>
+        </div>
       </div>
       <table class="log-table">
         <thead>
@@ -249,7 +256,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let entry of entryLog">
+          <tr *ngFor="let entry of filteredEntryLog">
             <td>{{ entry.time }}</td>
             <td>{{ entry.employeeId }}</td>
             <td>{{ entry.name }}</td>
@@ -262,7 +269,7 @@
             </td>
             <td class="registrado-por">{{ entry.registradoPor }}</td>
           </tr>
-          <tr *ngIf="entryLog.length === 0">
+          <tr *ngIf="filteredEntryLog.length === 0">
             <td colspan="6" class="no-entries">Sin registros hoy</td>
           </tr>
         </tbody>
