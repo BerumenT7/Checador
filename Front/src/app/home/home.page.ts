@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { IonContent, IonIcon } from '@ionic/angular/standalone';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { App } from '@capacitor/app';
@@ -550,7 +553,7 @@ export class HomePage implements OnInit, OnDestroy {
     this.selectedPhoto = null;
   }
 
-  exportPDF() {
+  async exportPDF() {
     const doc = new jsPDF({ orientation: 'landscape' });
     const fechaLegible = new Date().toLocaleDateString('es-MX', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -587,7 +590,27 @@ export class HomePage implements OnInit, OnDestroy {
     });
 
     const fechaArchivo = new Date().toLocaleDateString('es-MX').replace(/\//g, '-');
-    doc.save(`registro-acceso-${fechaArchivo}.pdf`);
+    const fileName = `registro-acceso-${fechaArchivo}.pdf`;
+
+    if (Capacitor.isNativePlatform()) {
+      const base64 = doc.output('datauristring').split(',')[1];
+      try {
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: base64,
+          directory: Directory.Cache,
+        });
+        await Share.share({
+          title: 'Registro de Entradas y Salidas',
+          url: result.uri,
+          dialogTitle: 'Guardar o compartir PDF',
+        });
+      } catch (err) {
+        console.error('Error generando PDF:', err);
+      }
+    } else {
+      doc.save(fileName);
+    }
   }
 
   private parseError(err: any): string {
