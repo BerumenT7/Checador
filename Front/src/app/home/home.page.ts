@@ -7,6 +7,7 @@ import autoTable from 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { DownloadFile } from '../plugins/download-file.plugin';
 import { IonContent, IonIcon } from '@ionic/angular/standalone';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { App } from '@capacitor/app';
@@ -595,18 +596,24 @@ export class HomePage implements OnInit, OnDestroy {
     if (Capacitor.isNativePlatform()) {
       const base64 = doc.output('datauristring').split(',')[1];
       try {
-        const result = await Filesystem.writeFile({
-          path: fileName,
-          data: base64,
-          directory: Directory.Cache,
-        });
-        await Share.share({
-          title: 'Registro de Entradas y Salidas',
-          url: result.uri,
-          dialogTitle: 'Guardar o compartir PDF',
-        });
+        await DownloadFile.saveToDownloads({ data: base64, fileName, mimeType: 'application/pdf' });
+        this.showSuccess('PDF guardado en Descargas');
       } catch (err) {
-        console.error('Error generando PDF:', err);
+        console.error('Error guardando en Descargas, usando compartir:', err);
+        try {
+          const result = await Filesystem.writeFile({
+            path: fileName,
+            data: base64,
+            directory: Directory.Cache,
+          });
+          await Share.share({
+            title: 'Registro de Entradas y Salidas',
+            url: result.uri,
+            dialogTitle: 'Guardar o compartir PDF',
+          });
+        } catch (shareErr) {
+          console.error('Error generando PDF:', shareErr);
+        }
       }
     } else {
       doc.save(fileName);
