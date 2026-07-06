@@ -238,9 +238,9 @@
             <option value="Caseta 1">Registrado por: Caseta 1</option>
             <option value="Caseta 2">Registrado por: Caseta 2</option>
           </select>
-          <button class="export-btn" (click)="exportCSV()" [disabled]="filteredEntryLog.length === 0">
+          <button class="export-btn" (click)="exportPDF()" [disabled]="filteredEntryLog.length === 0">
             <ion-icon name="download-outline"></ion-icon>
-            Exportar CSV
+            Exportar PDF
           </button>
         </div>
       </div>

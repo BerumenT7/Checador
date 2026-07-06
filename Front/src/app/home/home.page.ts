@@ -2,6 +2,8 @@ import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { IonContent, IonIcon } from '@ionic/angular/standalone';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { App } from '@capacitor/app';
@@ -548,21 +550,44 @@ export class HomePage implements OnInit, OnDestroy {
     this.selectedPhoto = null;
   }
 
-  exportCSV() {
-    const header = ['Hora', 'Clave', 'Nombre', 'Departamento', 'Movimiento', 'Permiso', 'Registrado Por'];
-    const rows = this.filteredEntryLog.map(e => [
-      e.time, e.employeeId, `"${e.name}"`, `"${e.department}"`,
-      e.tipoMovimiento, e.esPermiso ? 'Sí' : 'No', `"${e.registradoPor}"`
+  exportPDF() {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const fechaLegible = new Date().toLocaleDateString('es-MX', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+
+    doc.setFontSize(16);
+    doc.setTextColor(20, 40, 70);
+    doc.text('Registro de Entradas y Salidas', 14, 16);
+
+    doc.setFontSize(10);
+    doc.setTextColor(90);
+    doc.text(`Fecha: ${fechaLegible}`, 14, 23);
+    doc.text(`Empresa: ${environment.empresa}`, 14, 28);
+
+    let startY = 33;
+    if (this.logFilterRegistradoPor !== 'TODOS') {
+      doc.text(`Filtrado por: ${this.logFilterRegistradoPor}`, 14, 33);
+      startY = 38;
+    }
+
+    const head = [['Hora', 'Clave', 'Nombre', 'Departamento', 'Movimiento', 'Permiso', 'Registrado Por']];
+    const body = this.filteredEntryLog.map(e => [
+      e.time, e.employeeId, e.name, e.department,
+      e.tipoMovimiento, e.esPermiso ? 'Sí' : 'No', e.registradoPor,
     ]);
-    const csv = [header, ...rows].map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const fecha = new Date().toLocaleDateString('es-MX').replace(/\//g, '-');
-    a.href = url;
-    a.download = `registro-acceso-${fecha}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+
+    autoTable(doc, {
+      head,
+      body,
+      startY,
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [21, 101, 192], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 248, 252] },
+    });
+
+    const fechaArchivo = new Date().toLocaleDateString('es-MX').replace(/\//g, '-');
+    doc.save(`registro-acceso-${fechaArchivo}.pdf`);
   }
 
   private parseError(err: any): string {
