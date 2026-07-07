@@ -83,4 +83,22 @@ function invalidateCache(claveChofer) {
   cache.del(`thumb_${claveChofer}`);
 }
 
-module.exports = { findById, findPhotoById, findThumbnailById, invalidateCache };
+async function getDepartamentos() {
+  const cacheKey = 'departamentos_list';
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
+
+  const pool = getPool();
+  const result = await pool.request().query(`
+    SELECT DISTINCT LTRIM(RTRIM(Departamento)) AS Departamento
+    FROM [dbo].[Choferes]
+    WHERE Departamento IS NOT NULL AND LTRIM(RTRIM(Departamento)) <> ''
+    ORDER BY Departamento
+  `);
+
+  const departamentos = result.recordset.map(r => r.Departamento);
+  cache.set(cacheKey, departamentos);
+  return departamentos;
+}
+
+module.exports = { findById, findPhotoById, findThumbnailById, invalidateCache, getDepartamentos };

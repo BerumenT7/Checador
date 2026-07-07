@@ -60,6 +60,19 @@ async function getEntryPhoto(req, res, next) {
   }
 }
 
+async function getEntriesRangeCtrl(req, res, next) {
+  try {
+    const { desde, hasta, departamento, empresa, registradoPor } = req.query;
+    if (!desde || !hasta) {
+      return res.status(400).json({ message: 'Los parámetros desde y hasta son requeridos.' });
+    }
+    const entries = await EntryLogModel.getEntriesByDateRange(desde, hasta, departamento || null, empresa || null, registradoPor || null);
+    res.json(entries);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getEmployeeHistoryCtrl(req, res, next) {
   try {
     const { id } = req.params;
@@ -71,4 +84,4 @@ async function getEmployeeHistoryCtrl(req, res, next) {
   }
 }
 
-module.exports = { admitEmployee, getTodayLog, getEntryPhoto, getEmployeeHistoryCtrl };
+module.exports = { admitEmployee, getTodayLog, getEntryPhoto, getEmployeeHistoryCtrl, getEntriesRangeCtrl };

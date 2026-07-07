@@ -235,10 +235,10 @@
         <div class="log-header-actions">
           <select class="log-filter-select" [(ngModel)]="logFilterRegistradoPor" title="Filtrar por Registrado por">
             <option value="TODOS">Registrado por: Todos</option>
-            <option value="Caseta 1">Registrado por: Caseta 1</option>
-            <option value="Caseta 2">Registrado por: Caseta 2</option>
+            <option value="Base Siete">Registrado por: Base Siete</option>
+            <option value="Clouthier">Registrado por: Clouthier</option>
           </select>
-          <button class="export-btn" (click)="exportPDF()" [disabled]="filteredEntryLog.length === 0">
+          <button class="export-btn" (click)="openExportFilterModal()">
             <ion-icon name="download-outline"></ion-icon>
             Exportar PDF
           </button>
@@ -325,6 +325,63 @@
           <ion-icon name="image-outline"></ion-icon>
           <p>No se pudo cargar la foto</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── MODAL FILTRO EXPORTAR PDF ───── -->
+  <div class="export-filter-overlay" *ngIf="showExportFilterModal" (click)="closeExportFilterModal()">
+    <div class="export-filter-modal" (click)="$event.stopPropagation()">
+      <div class="export-filter-header">
+        <div class="export-filter-title">
+          <ion-icon name="document-outline"></ion-icon>
+          Exportar Reporte PDF
+        </div>
+        <button class="export-filter-close" (click)="closeExportFilterModal()">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="export-filter-body">
+        <div class="export-filter-row">
+          <label>Desde</label>
+          <input type="date" [(ngModel)]="exportFilterDesde" [min]="exportMinDate" [max]="exportFilterHasta" />
+        </div>
+        <div class="export-filter-row">
+          <label>Hasta</label>
+          <input type="date" [(ngModel)]="exportFilterHasta" [min]="exportFilterDesde" [max]="exportMaxDate" />
+        </div>
+        <div class="export-filter-row">
+          <label>Departamento</label>
+          <select [(ngModel)]="exportFilterDepartamento">
+            <option value="TODOS">Todos</option>
+            <option *ngFor="let dep of exportDepartamentos" [value]="dep">{{ dep }}</option>
+          </select>
+        </div>
+        <div class="export-filter-row">
+          <label>Movimiento</label>
+          <div class="export-filter-pills">
+            <button [class.active]="exportFilterTipo === 'TODAS'" (click)="exportFilterTipo = 'TODAS'">Todas</button>
+            <button [class.active]="exportFilterTipo === 'ENTRADA'" (click)="exportFilterTipo = 'ENTRADA'">Entradas</button>
+            <button [class.active]="exportFilterTipo === 'SALIDA'" (click)="exportFilterTipo = 'SALIDA'">Salidas</button>
+          </div>
+        </div>
+        <div class="export-filter-row">
+          <label>Registrado por</label>
+          <div class="export-filter-pills">
+            <button [class.active]="exportFilterRegistradoPor === 'TODOS'" (click)="exportFilterRegistradoPor = 'TODOS'">Todos</button>
+            <button [class.active]="exportFilterRegistradoPor === 'Base Siete'" (click)="exportFilterRegistradoPor = 'Base Siete'">Base Siete</button>
+            <button [class.active]="exportFilterRegistradoPor === 'Clouthier'" (click)="exportFilterRegistradoPor = 'Clouthier'">Clouthier</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="export-filter-actions">
+        <button class="export-filter-cancel" (click)="closeExportFilterModal()" [disabled]="exportLoading">Cancelar</button>
+        <button class="export-filter-confirm" (click)="confirmExportPDF()" [disabled]="exportLoading">
+          <ion-icon name="reload" *ngIf="exportLoading" class="spinning"></ion-icon>
+          {{ exportLoading ? 'Generando...' : 'Aceptar' }}
+        </button>
       </div>
     </div>
   </div>

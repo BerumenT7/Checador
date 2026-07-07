@@ -108,7 +108,17 @@ export class HomePage implements OnInit, OnDestroy {
   showHistoryFilter = false;
   historyFilterTipo: 'TODAS' | 'ENTRADA' | 'SALIDA' = 'TODAS';
   historyFilterOrder: 'DESC' | 'ASC' = 'DESC';
-  logFilterRegistradoPor: 'TODOS' | 'Caseta 1' | 'Caseta 2' = 'TODOS';
+  logFilterRegistradoPor: 'TODOS' | 'Base Siete' | 'Clouthier' = 'TODOS';
+
+  showExportFilterModal = false;
+  exportLoading = false;
+  exportFilterDesde = '';
+  exportFilterHasta = '';
+  exportFilterDepartamento = 'TODOS';
+  exportFilterTipo: 'TODAS' | 'ENTRADA' | 'SALIDA' = 'TODAS';
+  exportFilterRegistradoPor: 'TODOS' | 'Base Siete' | 'Clouthier' = 'TODOS';
+  exportDepartamentos: string[] = [];
+  private readonly EXPORT_MIN_DATE = '2026-06-22';
 
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly CACHE_TTL = 5 * 60 * 1000;
@@ -554,7 +564,83 @@ export class HomePage implements OnInit, OnDestroy {
     this.selectedPhoto = null;
   }
 
-  async exportPDF() {
+  private toDateInputValue(d: Date): string {
+    const y = d.getFullYear();
+    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  get exportMaxDate(): string {
+    return this.toDateInputValue(new Date());
+  }
+
+  get exportMinDate(): string {
+    return this.EXPORT_MIN_DATE;
+  }
+
+  openExportFilterModal() {
+    this.exportFilterDesde = this.EXPORT_MIN_DATE;
+    this.exportFilterHasta = this.exportMaxDate;
+    this.exportFilterDepartamento = 'TODOS';
+    this.exportFilterTipo = 'TODAS';
+    this.exportFilterRegistradoPor = 'TODOS';
+    this.showExportFilterModal = true;
+
+    if (this.exportDepartamentos.length === 0) {
+      this.http.get<string[]>(`${this.apiUrl}/employees/meta/departamentos`).subscribe({
+        next: (deps) => { this.exportDepartamentos = deps; },
+        error: () => {},
+      });
+    }
+  }
+
+  closeExportFilterModal() {
+    if (this.exportLoading) return;
+    this.showExportFilterModal = false;
+  }
+
+  confirmExportPDF() {
+    this.exportLoading = true;
+    let url = `${this.apiUrl}/entry-log/range?desde=${this.exportFilterDesde}&hasta=${this.exportFilterHasta}&empresa=${environment.empresa}`;
+    if (this.exportFilterDepartamento !== 'TODOS') {
+      url += `&departamento=${encodeURIComponent(this.exportFilterDepartamento)}`;
+    }
+    if (this.exportFilterRegistradoPor !== 'TODOS') {
+      url += `&registradoPor=${encodeURIComponent(this.exportFilterRegistradoPor)}`;
+    }
+
+    this.http.get<any[]>(url).subscribe({
+      next: async (rows) => {
+        let entries = rows.map(e => ({
+          dateDisplay:   e.FechaHora.substring(0, 10),
+          time:          this.formatTime(e.FechaHora),
+          employeeId:    e.ClaveChofer,
+          name:          e.NombreCompleto,
+          department:    e.Departamento,
+          tipoMovimiento: e.TipoMovimiento as 'ENTRADA' | 'SALIDA',
+          esPermiso:     !!e.EsPermiso,
+          registradoPor: e.RegistradoPor,
+        }));
+
+        if (this.exportFilterTipo !== 'TODAS') {
+          entries = entries.filter(e => e.tipoMovimiento === this.exportFilterTipo);
+        }
+
+        this.exportLoading = false;
+        this.showExportFilterModal = false;
+        await this.generatePDF(entries);
+      },
+      error: () => {
+        this.exportLoading = false;
+      },
+    });
+  }
+
+  private async generatePDF(entries: {
+    dateDisplay: string; time: string; employeeId: string; name: string; department: string;
+    tipoMovimiento: string; esPermiso: boolean; registradoPor: string;
+  }[]) {
     const doc = new jsPDF({ orientation: 'landscape' });
     const fechaLegible = new Date().toLocaleDateString('es-MX', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -566,18 +652,23 @@ export class HomePage implements OnInit, OnDestroy {
 
     doc.setFontSize(10);
     doc.setTextColor(90);
-    doc.text(`Fecha: ${fechaLegible}`, 14, 23);
+    doc.text(`Generado: ${fechaLegible}`, 14, 23);
     doc.text(`Empresa: ${environment.empresa}`, 14, 28);
+    doc.text(`Periodo: ${this.exportFilterDesde} a ${this.exportFilterHasta}`, 14, 33);
 
-    let startY = 33;
-    if (this.logFilterRegistradoPor !== 'TODOS') {
-      doc.text(`Filtrado por: ${this.logFilterRegistradoPor}`, 14, 33);
-      startY = 38;
+    let startY = 38;
+    const filtrosTxt: string[] = [];
+    if (this.exportFilterDepartamento !== 'TODOS') filtrosTxt.push(`Departamento: ${this.exportFilterDepartamento}`);
+    if (this.exportFilterTipo !== 'TODAS') filtrosTxt.push(`Tipo: ${this.exportFilterTipo === 'ENTRADA' ? 'Entradas' : 'Salidas'}`);
+    if (this.exportFilterRegistradoPor !== 'TODOS') filtrosTxt.push(`Registrado por: ${this.exportFilterRegistradoPor}`);
+    if (filtrosTxt.length) {
+      doc.text(filtrosTxt.join('   |   '), 14, startY);
+      startY += 5;
     }
 
-    const head = [['Hora', 'Clave', 'Nombre', 'Departamento', 'Movimiento', 'Permiso', 'Registrado Por']];
-    const body = this.filteredEntryLog.map(e => [
-      e.time, e.employeeId, e.name, e.department,
+    const head = [['Fecha', 'Hora', 'Clave', 'Nombre', 'Departamento', 'Movimiento', 'Permiso', 'Registrado Por']];
+    const body = entries.map(e => [
+      e.dateDisplay, e.time, e.employeeId, e.name, e.department,
       e.tipoMovimiento, e.esPermiso ? 'Sí' : 'No', e.registradoPor,
     ]);
 

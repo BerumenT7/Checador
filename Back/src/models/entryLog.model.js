@@ -61,6 +61,46 @@ async function getPhotoById(id) {
   return Buffer.from(row.FotoTicket).toString('base64');
 }
 
+async function getEntriesByDateRange(fechaInicio, fechaFin, departamento = null, empresa = null, registradoPor = null) {
+  const pool = getPool();
+  const request = pool.request()
+    .input('fechaInicio', sql.Date, fechaInicio)
+    .input('fechaFin',    sql.Date, fechaFin);
+
+  let filters = '';
+  if (departamento) {
+    request.input('departamento', sql.NVarChar(100), departamento);
+    filters += ' AND Departamento = @departamento';
+  }
+  if (empresa) {
+    request.input('empresa', sql.NVarChar(50), empresa);
+    filters += ' AND Empresa = @empresa';
+  }
+  if (registradoPor) {
+    request.input('registradoPor', sql.NVarChar(200), registradoPor);
+    filters += ' AND RegistradoPor = @registradoPor';
+  }
+
+  const result = await request.query(`
+      SELECT
+        Id,
+        ClaveChofer,
+        NombreCompleto,
+        Departamento,
+        Estatus,
+        TipoMovimiento,
+        RegistradoPor,
+        EsPermiso,
+        Empresa,
+        CONVERT(varchar(19), FechaHora, 120) AS FechaHora
+      FROM RegistroEntradas
+      WHERE CAST(FechaHora AS DATE) BETWEEN @fechaInicio AND @fechaFin
+      ${filters}
+      ORDER BY FechaHora DESC
+    `);
+  return result.recordset;
+}
+
 async function getEmployeeHistory(claveChofer, soloHoy = true) {
   const pool = getPool();
   const result = await pool.request()
@@ -70,4 +110,4 @@ async function getEmployeeHistory(claveChofer, soloHoy = true) {
   return result.recordset;
 }
 
-module.exports = { createEntry, getTodayEntries, getPhotoById, getEmployeeHistory };
+module.exports = { createEntry, getTodayEntries, getPhotoById, getEmployeeHistory, getEntriesByDateRange };

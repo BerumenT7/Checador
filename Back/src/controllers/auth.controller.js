@@ -7,8 +7,8 @@ const ALLOWED_DEPARTMENTS = ['sistemas', 'seguridad'];
 // Cuentas virtuales (no ligadas a un empleado real en Choferes): casetas, kioscos, etc.
 // Se identifican porque el LEFT JOIN no encuentra Departamento.
 const VIRTUAL_USER_NAMES = {
-  '12000': 'Caseta 1',
-  '12001': 'Caseta 2',
+  '12000': 'Base Siete',
+  '12001': 'Clouthier',
 };
 
 async function login(req, res, next) {

@@ -37,4 +37,13 @@ async function getEmployeeThumbnail(req, res, next) {
   }
 }
 
-module.exports = { getEmployeeById, getEmployeePhoto, getEmployeeThumbnail };
+async function getDepartamentosCtrl(req, res, next) {
+  try {
+    const departamentos = await EmployeeModel.getDepartamentos();
+    res.json(departamentos);
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { getEmployeeById, getEmployeePhoto, getEmployeeThumbnail, getDepartamentosCtrl };
