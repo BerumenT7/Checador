@@ -108,6 +108,7 @@ export class HomePage implements OnInit, OnDestroy {
   showHistoryFilter = false;
   historyFilterTipo: 'TODAS' | 'ENTRADA' | 'SALIDA' = 'TODAS';
   historyFilterOrder: 'DESC' | 'ASC' = 'DESC';
+  historyFilterRegistradoPor: 'TODOS' | 'Base Siete' | 'Clouthier' = 'TODOS';
   logFilterRegistradoPor: 'TODOS' | 'Base Siete' | 'Clouthier' = 'TODOS';
 
   showExportFilterModal = false;
@@ -174,6 +175,7 @@ export class HomePage implements OnInit, OnDestroy {
     this.showHistoryFilter = false;
     this.historyFilterTipo = 'TODAS';
     this.historyFilterOrder = 'DESC';
+    this.historyFilterRegistradoPor = 'TODOS';
   }
 
   closeHistoryModal() {
@@ -234,6 +236,9 @@ export class HomePage implements OnInit, OnDestroy {
     let result = [...this.historyFullEntries];
     if (this.historyFilterTipo !== 'TODAS') {
       result = result.filter(e => e.TipoMovimiento === this.historyFilterTipo);
+    }
+    if (this.historyFilterRegistradoPor !== 'TODOS') {
+      result = result.filter(e => e.RegistradoPor === this.historyFilterRegistradoPor);
     }
     if (this.historyFilterOrder === 'ASC') {
       result.reverse();

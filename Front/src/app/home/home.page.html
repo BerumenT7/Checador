@@ -478,6 +478,14 @@
                 <button [class.active]="historyFilterTipo === 'SALIDA'"  (click)="historyFilterTipo = 'SALIDA'">Salidas</button>
               </div>
             </div>
+            <div class="history-filter-group">
+              <span class="history-filter-label">Registrado por</span>
+              <div class="history-filter-pills">
+                <button [class.active]="historyFilterRegistradoPor === 'TODOS'"      (click)="historyFilterRegistradoPor = 'TODOS'">Todos</button>
+                <button [class.active]="historyFilterRegistradoPor === 'Base Siete'"  (click)="historyFilterRegistradoPor = 'Base Siete'">Base Siete</button>
+                <button [class.active]="historyFilterRegistradoPor === 'Clouthier'"   (click)="historyFilterRegistradoPor = 'Clouthier'">Clouthier</button>
+              </div>
+            </div>
           </div>
 
           <div class="history-entries" *ngIf="historyFullEntriesFiltered.length > 0; else noFullHistory">
@@ -488,6 +496,7 @@
                 {{ e.TipoMovimiento }}
               </span>
               <span class="history-permiso-badge" *ngIf="e.EsPermiso">PERMISO 📷</span>
+              <span class="history-entry-by">{{ e.RegistradoPor }}</span>
             </div>
           </div>
           <ng-template #noFullHistory>
