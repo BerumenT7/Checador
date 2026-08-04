@@ -817,8 +817,12 @@ export class HomePage implements OnInit, OnDestroy {
           }).subscribe({ next: () => resolve(), error: reject });
         });
         await this.offlineDatabase.markSynced(item.idLocal);
-      } catch {
-        await this.offlineDatabase.registerAttempt(item.idLocal);
+      } catch (error: any) {
+        if ([400, 403, 404].includes(error?.status)) {
+          await this.offlineDatabase.markRejected(item.idLocal);
+        } else {
+          await this.offlineDatabase.registerAttempt(item.idLocal);
+        }
       }
     }
     await this.refreshPendingCount();

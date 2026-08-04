@@ -30,8 +30,8 @@ async function createEntry(claveChofer, nombreCompleto, departamento, estatus, t
       VALUES
         (@claveChofer, @nombreCompleto, @departamento, @estatus, @tipoMovimiento, @registradoPor, @esPermiso, @fotoTicket, @empresa, @idLocal, COALESCE(
           CASE
-            WHEN @fechaHora LIKE '%T%Z' THEN DATEADD(HOUR, -6, TRY_CONVERT(datetime2, LEFT(@fechaHora, 19), 126))
-            ELSE TRY_CONVERT(datetime2, @fechaHora, 120)
+            WHEN @fechaHora LIKE '%T%Z' THEN DATEADD(HOUR, -6, CONVERT(datetime2, LEFT(@fechaHora, 19), 126))
+            ELSE CONVERT(datetime2, @fechaHora, 120)
           END,
           GETDATE()
         ), CASE WHEN @idLocal IS NULL THEN NULL ELSE GETDATE() END, CASE WHEN @idLocal IS NULL THEN 0 ELSE 1 END)

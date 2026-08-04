@@ -15,7 +15,7 @@ export interface OfflineEntry {
   esPermiso: boolean;
   registradoPor: string;
   empresa: string;
-  estado: 'PENDIENTE' | 'SINCRONIZADO';
+  estado: 'PENDIENTE' | 'SINCRONIZADO' | 'RECHAZADO';
   intentos: number;
 }
 
@@ -72,6 +72,16 @@ export class OfflineDatabaseService {
       return;
     }
     await this.db.run(`UPDATE movimientos_offline SET estado = 'SINCRONIZADO' WHERE idLocal = ?`, [idLocal]);
+  }
+
+  async markRejected(idLocal: string): Promise<void> {
+    await this.initialize();
+    if (!this.db) {
+      this.writeFallback(this.readFallback().map(entry =>
+        entry.idLocal === idLocal ? { ...entry, estado: 'RECHAZADO' } : entry));
+      return;
+    }
+    await this.db.run(`UPDATE movimientos_offline SET estado = 'RECHAZADO' WHERE idLocal = ?`, [idLocal]);
   }
 
   async registerAttempt(idLocal: string): Promise<void> {
