@@ -579,6 +579,12 @@ export class HomePage implements OnInit, OnDestroy {
     return [0, 408, 429, 500, 502, 503, 504].includes(err?.status);
   }
 
+  private getLocalDateTime(): string {
+    const now = new Date();
+    const pad = (value: number) => value.toString().padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+
   private async saveOfflineEntry(tipoMovimiento: 'ENTRADA' | 'SALIDA', esPermiso: boolean) {
     if (!this.currentEmployee) return;
     this.isLoading = true;
@@ -586,7 +592,7 @@ export class HomePage implements OnInit, OnDestroy {
     try {
       await this.offlineDatabase.addEntry({
         numEmpleado: this.currentEmployee.NumEmpleado,
-        fechaHora: new Date().toISOString(),
+        fechaHora: this.getLocalDateTime(),
         tipoMovimiento,
         esPermiso,
         registradoPor: this.auth.getUser()?.nombreCompleto || 'Operador offline',

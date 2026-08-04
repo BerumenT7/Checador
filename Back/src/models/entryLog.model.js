@@ -14,7 +14,7 @@ async function createEntry(claveChofer, nombreCompleto, departamento, estatus, t
     .input('fotoTicket',      sql.VarBinary(sql.MAX),  fotoBuffer)
     .input('empresa',         sql.NVarChar(50),        empresa)
     .input('idLocal',         sql.NVarChar(100),       idLocal || null)
-    .input('fechaHora',       sql.DateTime2,           fechaHora ? new Date(fechaHora) : null);
+    .input('fechaHora',       sql.NVarChar(40),        fechaHora || null);
 
   if (idLocal) {
     const existing = await pool.request()
@@ -28,7 +28,13 @@ async function createEntry(claveChofer, nombreCompleto, departamento, estatus, t
         (ClaveChofer, NombreCompleto, Departamento, Estatus, TipoMovimiento, RegistradoPor, EsPermiso, FotoTicket, Empresa, IdLocal, FechaHora, FechaSincronizacion, FueOffline)
       OUTPUT INSERTED.Id
       VALUES
-        (@claveChofer, @nombreCompleto, @departamento, @estatus, @tipoMovimiento, @registradoPor, @esPermiso, @fotoTicket, @empresa, @idLocal, COALESCE(@fechaHora, GETDATE()), CASE WHEN @idLocal IS NULL THEN NULL ELSE GETDATE() END, CASE WHEN @idLocal IS NULL THEN 0 ELSE 1 END)
+        (@claveChofer, @nombreCompleto, @departamento, @estatus, @tipoMovimiento, @registradoPor, @esPermiso, @fotoTicket, @empresa, @idLocal, COALESCE(
+          CASE
+            WHEN @fechaHora LIKE '%T%Z' THEN DATEADD(HOUR, -6, TRY_CONVERT(datetime2, LEFT(@fechaHora, 19), 126))
+            ELSE TRY_CONVERT(datetime2, @fechaHora, 120)
+          END,
+          GETDATE()
+        ), CASE WHEN @idLocal IS NULL THEN NULL ELSE GETDATE() END, CASE WHEN @idLocal IS NULL THEN 0 ELSE 1 END)
     `);
   return { id: result.recordset[0].Id, duplicate: false };
 }
