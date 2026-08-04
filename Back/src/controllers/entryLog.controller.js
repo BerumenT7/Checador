@@ -3,7 +3,15 @@ const EmployeeModel  = require('../models/employee.model');
 
 async function admitEmployee(req, res, next) {
   try {
-    const { numEmpleado, tipoMovimiento = 'ENTRADA', esPermiso = false, fotoTicket = null, empresa = 'SIETE' } = req.body;
+    const {
+      numEmpleado,
+      tipoMovimiento = 'ENTRADA',
+      esPermiso = false,
+      fotoTicket = null,
+      empresa = 'SIETE',
+      idLocal = null,
+      fechaHora = null,
+    } = req.body;
 
     if (!['ENTRADA', 'SALIDA'].includes(tipoMovimiento)) {
       return res.status(400).json({ message: 'TipoMovimiento debe ser ENTRADA o SALIDA.' });
@@ -20,7 +28,7 @@ async function admitEmployee(req, res, next) {
 
     const registradoPor = req.user?.nombreCompleto || req.user?.claveChofer || 'Sistema';
 
-    const newId = await EntryLogModel.createEntry(
+    const result = await EntryLogModel.createEntry(
       employee.NumEmpleado,
       employee.NombreCompleto,
       employee.Departamento,
@@ -29,10 +37,19 @@ async function admitEmployee(req, res, next) {
       registradoPor,
       esPermiso,
       fotoTicket,
-      empresa
+      empresa,
+      idLocal,
+      fechaHora,
     );
 
-    res.status(201).json({ message: 'Registro guardado', id: newId, employee, tipoMovimiento, esPermiso });
+    res.status(result.duplicate ? 200 : 201).json({
+      message: result.duplicate ? 'Registro ya sincronizado' : 'Registro guardado',
+      id: result.id,
+      employee,
+      tipoMovimiento,
+      esPermiso,
+      duplicate: result.duplicate,
+    });
   } catch (error) {
     next(error);
   }

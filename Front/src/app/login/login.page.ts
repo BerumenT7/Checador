@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { IonContent, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { shieldCheckmark, eyeOutline, eyeOffOutline, logInOutline } from 'ionicons/icons';
+import { shieldCheckmark, eyeOutline, eyeOffOutline, logInOutline, cloudOfflineOutline } from 'ionicons/icons';
 import { AuthService } from '../services/auth.service';
 
 @Component({
@@ -22,11 +22,20 @@ export class LoginPage {
   errorMessage = '';
 
   constructor(private auth: AuthService, private router: Router) {
-    addIcons({ shieldCheckmark, eyeOutline, eyeOffOutline, logInOutline });
+    addIcons({ shieldCheckmark, eyeOutline, eyeOffOutline, logInOutline, cloudOfflineOutline });
   }
 
   togglePassword() {
     this.showPassword = !this.showPassword;
+  }
+
+  onOfflineMode() {
+    this.errorMessage = '';
+    if (!this.auth.enterOfflineMode()) {
+      this.errorMessage = 'Primero debes iniciar sesión al menos una vez con el servidor disponible.';
+      return;
+    }
+    this.router.navigate(['/home']);
   }
 
   onLogin() {

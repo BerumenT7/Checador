@@ -39,6 +39,11 @@
         {{ isLoading ? 'Verificando...' : 'Iniciar Sesión' }}
       </button>
 
+      <button class="offline-btn" type="button" (click)="onOfflineMode()" [disabled]="isLoading">
+        <ion-icon name="cloud-offline-outline"></ion-icon>
+        Modo offline
+      </button>
+
       <p class="access-note">Solo personal de <strong>Sistemas</strong> y <strong>Seguridad</strong> puede acceder.</p>
     </div>
 

@@ -36,11 +36,14 @@ import {
   searchOutline,
   chevronDownOutline,
   optionsOutline,
+  sunnyOutline,
+  moonOutline,
 } from 'ionicons/icons';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../services/auth.service';
 import { ConnectivityService } from '../services/connectivity.service';
-import { OfflineQueueService } from '../services/offline-queue.service';
+import { OfflineDatabaseService } from '../services/offline-database.service';
+import { getStoredTheme, toggleTheme, ThemeMode } from '../paleta';
 
 export interface Employee {
   NumEmpleado: string;
@@ -88,6 +91,9 @@ export class HomePage implements OnInit, OnDestroy {
   successMessage = '';
   isOnline = true;
   pendingCount = 0;
+  isOfflineMode = false;
+  offlineClock = '';
+  offlineError = '';
   isSlowConnection = false;
   connectionType = 'unknown';
   employeePhoto: string | null = null;
@@ -126,7 +132,9 @@ export class HomePage implements OnInit, OnDestroy {
 
   private timer: ReturnType<typeof setInterval> | null = null;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  private backendCheckTimer: ReturnType<typeof setInterval> | null = null;
   private readonly apiUrl = environment.apiUrl;
+  themeMode: ThemeMode = getStoredTheme();
 
   constructor(
     private http: HttpClient,
@@ -134,7 +142,7 @@ export class HomePage implements OnInit, OnDestroy {
     private platform: Platform,
     private zone: NgZone,
     private connectivity: ConnectivityService,
-    private offlineQueue: OfflineQueueService,
+    private offlineDatabase: OfflineDatabaseService,
   ) {
     addIcons({
       shieldCheckmark,
@@ -154,10 +162,16 @@ export class HomePage implements OnInit, OnDestroy {
       imageOutline,
       refreshOutline,
       checkmarkCircle,
-    searchOutline,
-    chevronDownOutline,
-    optionsOutline,
+      searchOutline,
+      chevronDownOutline,
+      optionsOutline,
+      sunnyOutline,
+      moonOutline,
     });
+  }
+
+  onToggleTheme() {
+    this.themeMode = toggleTheme(this.themeMode);
   }
 
   setTipo(tipo: 'ENTRADA' | 'SALIDA') {
@@ -257,9 +271,12 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.isOfflineMode = this.auth.isOfflineMode();
     this.updateTime();
     this.timer = setInterval(() => this.updateTime(), 1000);
-    this.loadTodayLog();
+    this.refreshPendingCount();
+    this.backendCheckTimer = setInterval(() => this.checkBackend(), 15000);
+    if (!this.isOfflineMode) this.loadTodayLog();
     this.backButtonSub = this.platform.backButton.subscribeWithPriority(10, () => {
       this.zone.run(() => { this.showExitConfirm = true; });
     });
@@ -268,10 +285,8 @@ export class HomePage implements OnInit, OnDestroy {
       this.zone.run(() => {
         this.isOnline = online;
         if (online) {
-          this.loadTodayLog();
-          if (this.pendingCount > 0) {
-            this.syncPending();
-          }
+          if (!this.isOfflineMode) this.loadTodayLog();
+          if (this.pendingCount > 0) this.syncPending();
         }
       });
     });
@@ -281,11 +296,16 @@ export class HomePage implements OnInit, OnDestroy {
     this.connInfoSub = this.connectivity.connectionInfo$.subscribe(info => {
       this.zone.run(() => { this.connectionType = info.effectiveType; });
     });
-    this.pendingCount = this.offlineQueue.getQueue().length;
+  }
+
+  private async refreshPendingCount() {
+    this.pendingCount = await this.offlineDatabase.pendingCount();
+    this.zone.run(() => {});
   }
 
   ngOnDestroy() {
     if (this.timer) clearInterval(this.timer);
+    if (this.backendCheckTimer) clearInterval(this.backendCheckTimer);
     if (this.backButtonSub) this.backButtonSub.unsubscribe();
     if (this.onlineSub) this.onlineSub.unsubscribe();
     if (this.slowConnSub) this.slowConnSub.unsubscribe();
@@ -323,8 +343,17 @@ export class HomePage implements OnInit, OnDestroy {
       .map(w => w[0]).join('').toUpperCase();
   }
 
+  private checkBackend() {
+    if (!this.pendingCount || this.isLoading) return;
+    const healthUrl = this.apiUrl.replace(/\/api\/?$/, '') + '/health';
+    this.http.get(healthUrl).subscribe({
+      next: () => { void this.syncPending(); },
+      error: () => {},
+    });
+  }
+
   loadTodayLog() {
-    if (!this.isOnline) return;
+    if (!this.isOnline || this.isOfflineMode) return;
     this.http.get<any[]>(`${this.apiUrl}/entry-log/today?empresa=${environment.empresa}`).subscribe({
       next: (entries) => {
         this.entryLog = entries.map(e => ({
@@ -364,6 +393,18 @@ export class HomePage implements OnInit, OnDestroy {
   pressEnter() {
     if (!this.enteredId || this.isLoading) return;
     if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+    if (this.isOfflineMode) {
+      this.currentEmployee = {
+        NumEmpleado: this.enteredId,
+        NombreCompleto: 'Registro offline',
+        Departamento: 'Pendiente de sincronizar',
+        Puesto: '',
+        Estatus: 'ACTIVE',
+        TieneFoto: false,
+      };
+      this.employeeNotFound = false;
+      return;
+    }
     this.searchDebounceTimer = setTimeout(() => this.doSearch(), 300);
   }
 
@@ -456,6 +497,10 @@ export class HomePage implements OnInit, OnDestroy {
 
   admitEmployee() {
     if (!this.currentEmployee || this.isLoading) return;
+    if (this.isOfflineMode) {
+      void this.saveOfflineEntry(this.tipoMovimiento, false);
+      return;
+    }
     this.isLoading = true;
     this.admitError = '';
 
@@ -471,17 +516,8 @@ export class HomePage implements OnInit, OnDestroy {
         this.showSuccess(this.tipoMovimiento === 'ENTRADA' ? 'Entrada registrada correctamente' : 'Salida registrada correctamente');
       },
       error: (err) => {
-        if (err.status === 0) {
-          this.offlineQueue.add({
-            numEmpleado: this.currentEmployee!.NumEmpleado,
-            tipoMovimiento: this.tipoMovimiento,
-            esPermiso: false,
-            fotoTicket: null,
-          });
-          this.pendingCount = this.offlineQueue.getQueue().length;
-          this.showSuccess('Sin conexión. Registro guardado para sincronizar.');
-          this.resetForm();
-          this.isLoading = false;
+        if (this.isRetryableError(err)) {
+          void this.saveOfflineEntry(this.tipoMovimiento, false);
           return;
         }
         this.admitError = this.parseError(err);
@@ -493,6 +529,10 @@ export class HomePage implements OnInit, OnDestroy {
 
   async salidarConPermiso() {
     if (!this.currentEmployee || this.isLoading) return;
+    if (this.isOfflineMode) {
+      await this.saveOfflineEntry('SALIDA', true);
+      return;
+    }
 
     let fotoBase64: string | null = null;
     try {
@@ -524,17 +564,8 @@ export class HomePage implements OnInit, OnDestroy {
         this.showSuccess('Salida con permiso registrada');
       },
       error: (err) => {
-        if (err.status === 0) {
-          this.offlineQueue.add({
-            numEmpleado: this.currentEmployee!.NumEmpleado,
-            tipoMovimiento: 'SALIDA',
-            esPermiso: true,
-            fotoTicket: fotoBase64,
-          });
-          this.pendingCount = this.offlineQueue.getQueue().length;
-          this.showSuccess('Sin conexión. Registro guardado para sincronizar.');
-          this.resetForm();
-          this.isLoading = false;
+        if (this.isRetryableError(err)) {
+          void this.saveOfflineEntry('SALIDA', true);
           return;
         }
         this.admitError = this.parseError(err);
@@ -542,6 +573,33 @@ export class HomePage implements OnInit, OnDestroy {
         this.autoCloseAdmitError();
       },
     });
+  }
+
+  private isRetryableError(err: any): boolean {
+    return [0, 408, 429, 500, 502, 503, 504].includes(err?.status);
+  }
+
+  private async saveOfflineEntry(tipoMovimiento: 'ENTRADA' | 'SALIDA', esPermiso: boolean) {
+    if (!this.currentEmployee) return;
+    this.isLoading = true;
+    this.offlineError = '';
+    try {
+      await this.offlineDatabase.addEntry({
+        numEmpleado: this.currentEmployee.NumEmpleado,
+        fechaHora: new Date().toISOString(),
+        tipoMovimiento,
+        esPermiso,
+        registradoPor: this.auth.getUser()?.nombreCompleto || 'Operador offline',
+        empresa: environment.empresa,
+      });
+      await this.refreshPendingCount();
+      this.showSuccess(esPermiso ? 'Salida con permiso guardada localmente' : 'Registro guardado localmente');
+      this.resetForm();
+    } catch {
+      this.offlineError = 'No fue posible guardar el registro en la tablet.';
+    } finally {
+      this.isLoading = false;
+    }
   }
 
   private showSuccess(message: string) {
@@ -729,32 +787,37 @@ export class HomePage implements OnInit, OnDestroy {
     this.admitErrorTimer = setTimeout(() => { this.admitError = ''; }, 5000);
   }
 
-  syncPending() {
-    const queue = this.offlineQueue.getQueue();
-    if (!queue.length || !this.isOnline || this.isLoading) return;
+  async syncPending() {
+    if (!this.isOnline || this.isLoading) return;
+    const queue = await this.offlineDatabase.getPending();
+    if (!queue.length) {
+      this.pendingCount = 0;
+      return;
+    }
+
     this.isLoading = true;
     this.showSuccess(`Sincronizando ${queue.length} registro(s)...`);
-    let processed = 0;
     for (const item of queue) {
-      this.http.post<any>(`${this.apiUrl}/entry-log`, {
-        numEmpleado: item.numEmpleado,
-        tipoMovimiento: item.tipoMovimiento,
-        esPermiso: item.esPermiso,
-        fotoTicket: item.fotoTicket,
-      }).subscribe({
-        next: () => {
-          this.offlineQueue.remove(item.id);
-          this.pendingCount = this.offlineQueue.getQueue().length;
-          this.loadTodayLog();
-          processed++;
-          if (processed >= queue.length) this.isLoading = false;
-        },
-        error: () => {
-          processed++;
-          if (processed >= queue.length) this.isLoading = false;
-        },
-      });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.http.post<any>(`${this.apiUrl}/entry-log`, {
+            idLocal: item.idLocal,
+            numEmpleado: item.numEmpleado,
+            fechaHora: item.fechaHora,
+            tipoMovimiento: item.tipoMovimiento,
+            esPermiso: item.esPermiso,
+            registradoPor: item.registradoPor,
+            empresa: item.empresa,
+          }).subscribe({ next: () => resolve(), error: reject });
+        });
+        await this.offlineDatabase.markSynced(item.idLocal);
+      } catch {
+        await this.offlineDatabase.registerAttempt(item.idLocal);
+      }
     }
+    await this.refreshPendingCount();
+    this.isLoading = false;
+    if (!this.isOfflineMode) this.loadTodayLog();
   }
 
   private resetForm() {

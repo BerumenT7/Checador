@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
+import { initTheme } from './paleta';
 
 @Component({
   selector: 'app-root',
@@ -11,6 +12,7 @@ export class AppComponent implements OnInit {
   constructor() {}
 
   async ngOnInit() {
+    initTheme();
     try {
       await ScreenOrientation.lock({ orientation: 'landscape' });
     } catch (err) {

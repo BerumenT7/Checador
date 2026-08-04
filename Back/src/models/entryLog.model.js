@@ -1,26 +1,36 @@
 const { getPool, sql } = require('../config/database');
 
-async function createEntry(claveChofer, nombreCompleto, departamento, estatus, tipoMovimiento, registradoPor, esPermiso = 0, fotoTicketBase64 = null, empresa = 'SIETE') {
+async function createEntry(claveChofer, nombreCompleto, departamento, estatus, tipoMovimiento, registradoPor, esPermiso = 0, fotoTicketBase64 = null, empresa = 'SIETE', idLocal = null, fechaHora = null) {
   const pool = getPool();
   const fotoBuffer = fotoTicketBase64 ? Buffer.from(fotoTicketBase64, 'base64') : null;
-  const result = await pool.request()
-    .input('claveChofer',     sql.NVarChar(10),       claveChofer)
-    .input('nombreCompleto',  sql.NVarChar(200),      nombreCompleto)
-    .input('departamento',    sql.NVarChar(100),      departamento)
-    .input('estatus',         sql.NVarChar(20),       estatus)
-    .input('tipoMovimiento',  sql.NVarChar(10),       tipoMovimiento)
-    .input('registradoPor',   sql.NVarChar(200),      registradoPor)
-    .input('esPermiso',       sql.Bit,                esPermiso ? 1 : 0)
-    .input('fotoTicket',      sql.VarBinary(sql.MAX), fotoBuffer)
-    .input('empresa',         sql.NVarChar(50),       empresa)
-    .query(`
+  const request = pool.request()
+    .input('claveChofer',     sql.NVarChar(10),        claveChofer)
+    .input('nombreCompleto',  sql.NVarChar(200),       nombreCompleto)
+    .input('departamento',    sql.NVarChar(100),       departamento)
+    .input('estatus',         sql.NVarChar(20),        estatus)
+    .input('tipoMovimiento',  sql.NVarChar(10),        tipoMovimiento)
+    .input('registradoPor',   sql.NVarChar(200),       registradoPor)
+    .input('esPermiso',       sql.Bit,                 esPermiso ? 1 : 0)
+    .input('fotoTicket',      sql.VarBinary(sql.MAX),  fotoBuffer)
+    .input('empresa',         sql.NVarChar(50),        empresa)
+    .input('idLocal',         sql.NVarChar(100),       idLocal || null)
+    .input('fechaHora',       sql.DateTime2,           fechaHora ? new Date(fechaHora) : null);
+
+  if (idLocal) {
+    const existing = await pool.request()
+      .input('idLocal', sql.NVarChar(100), idLocal)
+      .query('SELECT Id FROM RegistroEntradas WHERE IdLocal = @idLocal');
+    if (existing.recordset[0]) return { id: existing.recordset[0].Id, duplicate: true };
+  }
+
+  const result = await request.query(`
       INSERT INTO RegistroEntradas
-        (ClaveChofer, NombreCompleto, Departamento, Estatus, TipoMovimiento, RegistradoPor, EsPermiso, FotoTicket, Empresa)
+        (ClaveChofer, NombreCompleto, Departamento, Estatus, TipoMovimiento, RegistradoPor, EsPermiso, FotoTicket, Empresa, IdLocal, FechaHora, FechaSincronizacion, FueOffline)
       OUTPUT INSERTED.Id
       VALUES
-        (@claveChofer, @nombreCompleto, @departamento, @estatus, @tipoMovimiento, @registradoPor, @esPermiso, @fotoTicket, @empresa)
+        (@claveChofer, @nombreCompleto, @departamento, @estatus, @tipoMovimiento, @registradoPor, @esPermiso, @fotoTicket, @empresa, @idLocal, COALESCE(@fechaHora, GETDATE()), CASE WHEN @idLocal IS NULL THEN NULL ELSE GETDATE() END, CASE WHEN @idLocal IS NULL THEN 0 ELSE 1 END)
     `);
-  return result.recordset[0].Id;
+  return { id: result.recordset[0].Id, duplicate: false };
 }
 
 async function getTodayEntries(empresa = null) {

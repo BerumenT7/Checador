@@ -26,6 +26,9 @@
         <span class="operator-dept">{{ auth.getUser()?.departamento }}</span>
       </div>
       <div class="operator-actions">
+        <button class="theme-toggle-btn" (click)="onToggleTheme()" title="Cambiar tema">
+          <ion-icon [name]="themeMode === 'dark' ? 'sunny-outline' : 'moon-outline'"></ion-icon>
+        </button>
         <button class="search-history-btn" (click)="openHistoryModal()" title="Buscar historial">
           <ion-icon name="search-outline"></ion-icon>
         </button>
@@ -34,6 +37,16 @@
           Cerrar sesión
         </button>
       </div>
+    </div>
+
+    <div class="offline-status" *ngIf="isOfflineMode">
+      <strong>MODO OFFLINE</strong>
+      <span>Los registros se guardan en la tablet y se sincronizarán al regresar el servidor.</span>
+      <span class="pending-badge">Pendientes: {{ pendingCount }}</span>
+    </div>
+    <div class="offline-status online" *ngIf="!isOfflineMode && pendingCount > 0">
+      <strong>REGISTROS PENDIENTES: {{ pendingCount }}</strong>
+      <button type="button" (click)="syncPending()">Sincronizar ahora</button>
     </div>
 
     <!-- ───── MAIN PANELS ───── -->
@@ -184,11 +197,11 @@
           </button>
         </div>
 
-        <div class="admit-error" *ngIf="admitError">
+        <div class="admit-error" *ngIf="admitError || offlineError">
           <ion-icon name="alert-circle-outline"></ion-icon>
-          {{ admitError }}
+          {{ admitError || offlineError }}
         </div>
-        <p class="admit-hint" *ngIf="!admitError">Presiona el botón para registrar {{ tipoMovimiento === 'ENTRADA' ? 'entrada' : 'salida' }} del empleado</p>
+        <p class="admit-hint" *ngIf="!admitError && !offlineError">Presiona el botón para registrar {{ tipoMovimiento === 'ENTRADA' ? 'entrada' : 'salida' }} del empleado</p>
       </div>
     </div>
 

@@ -35,3 +35,38 @@
 /* @import "@ionic/angular/css/palettes/dark.always.css"; */
 /* @import "@ionic/angular/css/palettes/dark.class.css"; */
 @import '@ionic/angular/css/palettes/dark.system.css';
+
+/* ─────────────────────────────────────────────────────────────
+   Paleta SIETE — variables CSS (valores default = dark).
+   Se sobreescriben en tiempo de ejecución desde src/app/paleta.ts
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --bg: #0F1A1B;
+  --bg-card: #182526;
+  --bg-elevated: #0F2526;
+  --bg-deep: #071220;
+  --border: #1E3A3E;
+  --text: #E8F2F3;
+  --text-mid: #8BBCC2;
+  --text-muted: #3D6166;
+  --accent: #00A89D;
+  --success: #4ECDC4;
+  --success-bg: #0B2E22;
+  --error: #FF6B6B;
+  --error-bg: #2E0F0B;
+  --warning: #E0A045;
+  --purple: #B06AFF;
+
+  --text-rgb: 232, 242, 243;
+  --accent-rgb: 0, 168, 157;
+  --success-rgb: 78, 205, 196;
+  --error-rgb: 255, 107, 107;
+  --warning-rgb: 224, 160, 69;
+  --purple-rgb: 176, 106, 255;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.25s ease, color 0.25s ease;
+}
